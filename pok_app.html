@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="pok_curriculum.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APStat Chain</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #ffffff;
+            color: #000000;
+            transition: background-color 0.3s, color 0.3s;
+            margin: 0;
+            padding: 20px;
+        }
+        .dark {
+            background-color: #1e1e1e;
+            color: #ffffff;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .questions-container {
+            margin-top: 20px;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+            margin: 20px 0;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        .dark th, .dark td {
+            border-color: #444;
+        }
+        .choice {
+            margin: 10px 0;
+        }
+        .correct-choice {
+            background-color: #d4edda;
+        }
+        .dark .correct-choice {
+            background-color: #2b5329;
+        }
+        .reasoning, .solution {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+        .dark .reasoning, .dark .solution {
+            border-color: #444;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            margin: 10px 0;
+        }
+        .instructional-note {
+            font-style: italic;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧮 APStat Chain</h1>
+        
+        <div id="progress">Question 1 of 738</div>
+        <div id="my-progress">My Progress: 0 Answered / 0 Mined</div>
+        <div id="score">My Score: 0</div>
+        <div id="class-average">Projected Class Average: 0</div>
+        <div id="peers">Peers Seen: 0</div>
+        
+        <button id="themeToggle">Toggle Dark Mode</button>
+        
+        <div id="messageContainer"></div>
+        <div id="statsContainer"></div>
+        <div id="questionsContainer"></div>
+        <button id="submit-answer">Submit Answer</button>
+        
+        <nav>
+            <button id="prev">Previous</button>
+            <button id="next">Next</button>
+        </nav>
+        
+        <div id="sync">
+            <button id="generate-qr">Generate Sync QR</button>
+            <div id="qr-code"></div>
+            <button id="scan-qr">Scan Peer QR</button>
+            <video id="video" style="display: none;"></video>
+            <canvas id="canvas" style="display: none;"></canvas>
+        </div>
+    </div>
+
+    <div id="contextFinder" class="context-finder" style="display:none;"></div>
+
+    <script>
+        // Register ChartDataLabels plugin
+        Chart.register(ChartDataLabels);
+
+        const MASTER_CONFIG = { showSolutions: false };
+
+        // Updated curriculum with new schema
+        /*const POK_CURRICULUM = [
+            {
+                id: 'U1-L10-Q01',
+                type: 'multiple-choice',
+                prompt: 'What is the mean of 1, 2, 3?',
+                attachments: {
+                    choices: [{key: 'A', value: '1'}, {key: 'B', value: '2'}, {key: 'C', value: '3'}],
+                    answerKey: 'B'
+                },
+                reasoning: 'The mean is (1+2+3)/3 = 2.',
+                solution: 'Detailed calculation: sum = 6, n=3, mean=2.'
+            },
+            {
+                id: 'U1-PC-MCQ-A-Q01',
+                type: 'multiple-choice',
+                prompt: 'PC question: What is the median of 1, 2, 3?',
+                attachments: {
+                    choices: [{key: 'A', value: '1'}, {key: 'B', value: '2'}, {key: 'C', value: '3'}],
+                    answerKey: 'B'
+                },
+                reasoning: 'Sorted: 1,2,3, median=2.'
+            },
+            {
+                id: 'U1-FRQ-01',
+                type: 'free-response',
+                prompt: 'Describe the sampling distribution of the sample mean for a sample size of n=30 from a population with mean μ=50 and standard deviation σ=10.',
+                solution: {
+                    parts: [{ partId: 'a', response: 'The sampling distribution is approximately normal with mean 50 and standard error 10/sqrt(30) ≈ 1.826.' }]
+                }
+            },
+            {
+                id: 'U1-L15-Q01',
+                type: 'multiple-choice',
+                prompt: 'Interpret this bar chart.',
+                attachments: {
+                    chartType: 'bar',
+                    labels: ['A', 'B', 'C'],
+                    series: [{ data: [10, 20, 30], backgroundColor: ['red', 'green', 'blue'] }]
+                },
+                reasoning: 'Bar chart shows increasing values.'
+            },
+            {
+                id: 'U1-FRQ-02',
+                type: 'free-response',
+                prompt: 'Explain the Central Limit Theorem.',
+                solution: {
+                    parts: [{ partId: 'a', response: 'The CLT states...' }]
+                }
+            }
+        ];*/
+
+        var APStatChain = {
+            questions: [],
+            state: {
+                currentIndex: 0,
+                theme: 'light'
+            },
+            chartInstances: [],
+
+            hasUserAnswered: function(questionId) {
+                if (!this.state || !this.state.mempool || !this.state.identity) {
+                    console.warn('hasUserAnswered called before state initialized');
+                    return false;
+                }
+                
+                const normalizedQuestionId = String(questionId);
+                
+                return this.state.mempool.some(tx => 
+                    String(tx.questionId) === normalizedQuestionId && 
+                    tx.ownerPubKey === this.state.identity.publicKey
+                );
+            },
+
+            getUserAnswer: function(questionId) {
+                const normalizedQuestionId = String(questionId);
+                const tx = this.state.mempool.find(tx => 
+                    String(tx.questionId) === normalizedQuestionId && 
+                    tx.ownerPubKey === this.state.identity.publicKey
+                );
+                return tx ? tx.answer : null;
+            },
+
+            crypto: {
+                generateMnemonic: function() {
+                    return 'test mnemonic ' + Math.random().toString(36).substring(2);
+                },
+                deriveKeyPair: async function(mnemonic) {
+                    return {
+                        publicKey: 'pub_' + Math.random().toString(36).substring(2),
+                        privateKey: 'priv_' + Math.random().toString(36).substring(2)
+                    };
+                }
+            },
+
+            renderer: {
+                plugins: {
+                                legend: { display: false },
+                                datalabels: { display: false }
+                            }
+                        },
+                        plugins: [numberLinePlugin]
+                    });
+                    chartInstances.push(chart);
+                }
+            }, 100);
+
+            return chartHtml;
+        },
+                    
+                    setTimeout(() => {
+                        const canvas = document.getElementById(containerId);
+                        if (!canvas) {
+                            console.error(`Canvas element ${containerId} not found`);
+                            return;
+                        }
+                        
+                        const ctx = canvas.getContext('2d');
+                        let config = null;
+                        
+                        const commonPlugins = {
+                            legend: { labels: { color: this.getTextColor() } },
+                            datalabels: {
+                                color: this.getTextColor(),
+                                formatter: (value) => value,
+                                anchor: 'end',
+                                align: 'end'
+                            }
+                        };
+                        
+                        const commonOptions = {
+                            scales: {
+                                x: { grid: { color: this.getGridColor() } },
+                                y: { grid: { color: this.getGridColor() } }
+                            },
+                            plugins: commonPlugins,
+                            color: this.getTextColor()
+                        };
+                        
+                        switch (attachment.chartType) {
+                            case 'bar':
+                            case 'histogram':
+                                config = {
+                                    type: 'bar',
+                                    data: {
+                                        labels: attachment.labels || [],
+                                        datasets: attachment.series || []
+                                    },
+                                    options: commonOptions
+                                };
+                                break;
+                            case 'pie':
+                                config = {
+                                    type: 'pie',
+                                    data: {
+                                        labels: attachment.labels || [],
+                                        datasets: [{
+                                            data: attachment.values || [],
+                                            backgroundColor: this.generateChartColors((attachment.values || []).length)
+                                        }]
+                                    },
+                                    options: {
+                                        ...commonOptions,
+                                        plugins: {
+                                            ...commonPlugins,
+                                            datalabels: {
+                                                color: '#000',
+                                                formatter: (value, ctx) => {
+                                                    let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                                    let percentage = Math.round((value / sum) * 100) + '%';
+                                                    return percentage;
+                                                }
+                                            }
+                                        }
+                                    }
+                                };
+                                break;
+                            case 'scatter':
+                                config = {
+                                    type: 'scatter',
+                                    data: {
+                                        datasets: [{
+                                            data: attachment.points || [],
+                                            pointBackgroundColor: this.getScatterPointColor()
+                                        }]
+                                    },
+                                    options: commonOptions
+                                };
+                                break;
+                        }
+                        
+                        if (config) {
+                            const chart = new Chart(ctx, config);
+                            APStatChain.chartInstances.push(chart);
+                        }
+                    }, 0);
+                },
+                function renderTable(tableData) {
+            if (!tableData || !Array.isArray(tableData) || tableData.length === 0) return '';
+            
+            const headers = tableData[0];
+            const rows = tableData.slice(1);
+            
+            let tableHtml = '<div class="table-container"><table>';
+            
+            // Headers
+            tableHtml += '<thead><tr>';
+            headers.forEach(header => {
+                tableHtml += `<th>${header}</th>`;
+            });
+            tableHtml += '</tr></thead>';
+            
+            // Rows
+            tableHtml += '<tbody>';
+            rows.forEach(row => {
+                tableHtml += '<tr>';
+                row.forEach(cell => {
+                    tableHtml += `<td>${cell}</td>`;
+                });
+                tableHtml += '</tr>';
+            });
+            tableHtml += '</tbody></table></div>';
+            
+            return tableHtml;
+        },
+                renderChoices: function(choices, answerKey, questionId) {
+                    if (!choices || !Array.isArray(choices)) return '';
+                    
+                    const isAnswered = APStatChain.hasUserAnswered(questionId);
+                    const normalizedAnswer = (answerKey || '').toString().trim().toUpperCase();
+                    
+                    let html = '<div class="choices">';
+                    choices.forEach(choice => {
+                        const isCorrect = choice.key.toString().trim().toUpperCase() === normalizedAnswer;
+                        const inputId = `choice-${choice.key}-${questionId}`;
+                        const disabledAttr = isAnswered ? 'disabled' : '';
+                        const correctClass = isCorrect && isAnswered ? ' correct-choice' : '';
+                        
+                        html += `
+                            <div class="choice${correctClass}">
+                                <label for="${inputId}">
+                                    <input type="radio" name="answer" id="${inputId}" value="${choice.key}" ${disabledAttr}>
+                                    <span class="choice-key">${choice.key}.</span>
+                                    ${choice.value}
+                                </label>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    return html;
+                },
+                function renderSolution(solution, questionId) {
+            if (!solution) return '';
+            
+            let solutionHtml = `
+                <div class="solution">
+                    <div class="solution-title">📝 Solution</div>
+            `;
+            
+            // Render solution parts
+            if (solution.parts && Array.isArray(solution.parts)) {
+                solution.parts.forEach(part => {
+                    solutionHtml += renderSolutionPart(part, questionId);
+                });
+            }
+            
+            solutionHtml += `</div>`;
+            
+            // Render scoring rubric separately
+            if (solution.scoring) {
+                solutionHtml += renderScoringRubric(solution.scoring);
+            }
+            
+            return solutionHtml;
+        },
+        function renderSolutionPart(part, questionId) {
+            let partHtml = `
+                <div class="solution-part">
+                    <div class="solution-part-id">Part ${part.partId}</div>
+                    <div class="solution-description">${part.description}</div>
+                    <div class="solution-response">${part.response}</div>
+            `;
+            
+            // Render solution attachments (charts, tables, images, etc.)
+            if (part.attachments) {
+                // Render image if present
+                if (part.attachments.image) {
+                    const imageAlt = part.attachments.imageAlt || 'Solution diagram';
+                    const imageCaption = part.attachments.imageCaption || '';
+                    partHtml += `
+                        <div class="image-container">
+                            <img src="${part.attachments.image}" 
+                                 alt="${imageAlt}" 
+                                 class="question-image" 
+                                 loading="lazy" 
+                                 decoding="async">
+                            ${imageCaption ? `<div class="image-caption">${imageCaption}</div>` : ''}
+                        </div>
+                    `;
+                }
+                
+                // Render multiple images if present
+                if (part.attachments.images && Array.isArray(part.attachments.images)) {
+                    partHtml += '<div class="images-container">';
+                    part.attachments.images.forEach((img, imgIndex) => {
+                        const imageAlt = img.imageAlt || `Solution diagram ${imgIndex + 1}`;
+                        const imageCaption = img.imageCaption || '';
+                        partHtml += `
+                            <div class="image-container">
+                                <img src="${img.image}" 
+                                     alt="${imageAlt}" 
+                                     class="question-image" 
+                                     loading="lazy" 
+                                     decoding="async">
+                                ${imageCaption ? `<div class="image-caption">${imageCaption}</div>` : ''}
+                            </div>
+                        `;
+                    });
+                    partHtml += '</div>';
+                }
+                
+                if (part.attachments.chartType) {
+                    partHtml += renderChart(part.attachments, `${questionId}-solution-${part.partId}`);
+                }
+                if (part.attachments.table) {
+                    partHtml += renderTable(part.attachments.table);
+                }
+            }
+            
+            // Render calculations if present
+            if (part.calculations && Array.isArray(part.calculations)) {
+                partHtml += `
+                    <div class="solution-calculations">
+                        <div class="solution-calculations-title">Calculations:</div>
+                `;
+                part.calculations.forEach(calc => {
+                    partHtml += `<div class="calculation-step">${calc}</div>`;
+                });
+                partHtml += `</div>`;
+            }
+            
+            partHtml += `</div>`;
+            return partHtml;
+        },
+        function renderScoringRubric(scoring) {
+            if (!scoring || !scoring.rubric) return '';
+            
+            let rubricHtml = `
+                <div class="scoring-rubric">
+                    <div class="scoring-title">Scoring Rubric (Total: ${scoring.totalPoints} points)</div>
+            `;
+            
+            scoring.rubric.forEach(rubricPart => {
+                rubricHtml += `
+                    <div class="scoring-part">
+                        <div class="scoring-part-header">
+                            Part ${rubricPart.part} (${rubricPart.maxPoints} point${rubricPart.maxPoints !== 1 ? 's' : ''})
+                        </div>
+                        <div class="scoring-criteria">
+                `;
+                
+                if (rubricPart.criteria && Array.isArray(rubricPart.criteria)) {
+                    rubricPart.criteria.forEach(criterion => {
+                        rubricHtml += `<div class="scoring-criterion">${criterion}</div>`;
+                    });
+                }
+                
+                rubricHtml += `</div>`;
+                
+                if (rubricPart.scoringNotes) {
+                    rubricHtml += `<div class="scoring-notes">${rubricPart.scoringNotes}</div>`;
+                }
+                
+                rubricHtml += `</div>`;
+            });
+            
+            rubricHtml += `</div>`;
+            return rubricHtml;
+        },
+                generateChartColors: function(numColors) {
+                    const lightColors = ['#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff'];
+                    const darkColors = ['#cf3c4f', '#2270b5', '#c39300', '#2e8b8b', '#6633cc'];
+                    const base = APStatChain.ui.isDarkMode() ? darkColors : lightColors;
+                    return Array.from({length: numColors}, (_, i) => base[i % base.length]);
+                },
+                getGridColor: function() {
+                    return APStatChain.ui.isDarkMode() ? '#444444' : '#dddddd';
+                },
+                getScatterPointColor: function() {
+                    return APStatChain.ui.isDarkMode() ? '#ffffff' : '#000000';
+                },
+                getTextColor: function() {
+                    return APStatChain.ui.isDarkMode() ? '#ffffff' : '#000000';
+                },
+                forceChartRerender: function() {
+                    APStatChain.chartInstances.forEach(chart => chart.destroy());
+                    APStatChain.chartInstances = [];
+                    this.initializeCharts(APStatChain.state.currentIndex);
+                },
+                adaptQuestionFormat: function(pokQuestion) {
+                    const adapted = JSON.parse(JSON.stringify(pokQuestion));
+                    
+                    if (pokQuestion.attachments) {
+                        if (pokQuestion.attachments.chartType === 'dotplot' && 
+                            pokQuestion.attachments.series && 
+                            pokQuestion.attachments.series[0]) {
+                            adapted.attachments.values = pokQuestion.attachments.series[0].values;
+                        }
+                        
+                        if (pokQuestion.attachments.chartType === 'scatter' && 
+                            pokQuestion.attachments.series && 
+                            pokQuestion.attachments.series[0]) {
+                            adapted.attachments.points = pokQuestion.attachments.series[0].values.map(
+                                pair => ({ x: pair[0], y: pair[1] })
+                            );
+                        }
+                        
+                        if (pokQuestion.attachments.chartConfig && 
+                            pokQuestion.attachments.chartConfig.yAxis) {
+                            adapted.attachments.chartConfig.yAxis.hideTicks = 
+                                adapted.attachments.chartConfig.yAxis.hideTicks || false;
+                        }
+                    }
+                    
+                    return adapted;
+                },
+
+        _generateQuestionHTML: function(adaptedQuestion, index) {
+            const questionNumber = index + 1;
+            let questionHtml = `
+                <div class="quiz-container" data-question-number="${questionNumber}" data-question-id="${question.id || ''}">
+                    <div class="question-header">Question ${questionNumber}</div>
+                    <div class="question-id">ID: ${question.id || 'N/A'}</div>
+                    <div class="question-id">Type: ${question.type || 'N/A'}</div>
+                    
+                    <div class="question-prompt">
+                        ${question.prompt || 'No prompt provided'}
+                    </div>
+            `;
+
+            // Handle attachments
+            if (question.attachments) {
+                // Render image if present
+                if (question.attachments.image) {
+                    const imageAlt = question.attachments.imageAlt || 'Question diagram';
+                    const imageCaption = question.attachments.imageCaption || '';
+                    questionHtml += `
+                        <div class="image-container">
+                            <img src="${question.attachments.image}" 
+                                 alt="${imageAlt}" 
+                                 class="question-image" 
+                                 loading="lazy" 
+                                 decoding="async">
+                            ${imageCaption ? `<div class="image-caption">${imageCaption}</div>` : ''}
+                        </div>
+                    `;
+                }
+                
+                // Render multiple images if present
+                if (question.attachments.images && Array.isArray(question.attachments.images)) {
+                    questionHtml += '<div class="images-container">';
+                    question.attachments.images.forEach((img, imgIndex) => {
+                        const imageAlt = img.imageAlt || `Question diagram ${imgIndex + 1}`;
+                        const imageCaption = img.imageCaption || '';
+                        questionHtml += `
+                            <div class="image-container">
+                                <img src="${img.image}" 
+                                     alt="${imageAlt}" 
+                                     class="question-image" 
+                                     loading="lazy" 
+                                     decoding="async">
+                                ${imageCaption ? `<div class="image-caption">${imageCaption}</div>` : ''}
+                            </div>
+                        `;
+                    });
+                    questionHtml += '</div>';
+                }
+                
+                // Render multiple charts if present
+                if (question.attachments.charts && Array.isArray(question.attachments.charts)) {
+                    questionHtml += '<div class="multiple-charts-container">';
+                    question.attachments.charts.forEach((chart, chartIndex) => {
+                        questionHtml += renderChart(chart, `${question.id}-chart-${chartIndex}`);
+                    });
+                    questionHtml += '</div>';
+                }
+                // Render single chart if present
+                else if (question.attachments.chartType) {
+                    questionHtml += renderChart(question.attachments, question.id);
+                }
+                
+                // Render table if present
+                if (question.attachments.table) {
+                    questionHtml += renderTable(question.attachments.table);
+                }
+                
+                // Render choices if present (in attachments)
+                if (question.attachments.choices) {
+                    questionHtml += renderChoices(question.attachments.choices, question.answerKey);
+                }
+            }
+
+            // Handle choices at top level (new format)
+            if (question.choices) {
+                questionHtml += renderChoices(question.choices, question.answerKey);
+            }
+
+            // Render reasoning/explanation if present
+            if (question.reasoning) {
+                questionHtml += `
+                    <div class="reasoning">
+                        <strong>Explanation:</strong> ${question.reasoning}
+                    </div>
+                `;
+            }
+
+            // Render solution if present (for free response questions)
+            if (question.solution) {
+                questionHtml += renderSolution(question.solution, question.id);
+            }
+
+            questionHtml += '</div>';
+            return questionHtml;
+                },
+                initializeCharts: function(index) {
+                    const question = APStatChain.questions[index];
+                    if (!question || !question.attachments) return;
+                    
+                    const att = question.attachments;
+                    if (att.chartType) {
+                        this.renderChart(att, `chart-${question.id}`);
+                    }
+                },
+                renderCurrentQuestion: function() {
+                    const index = APStatChain.state.currentIndex;
+                    const question = APStatChain.questions[index];
+                    if (!question) return;
+                    
+                    const adaptedQuestion = this.adaptQuestionFormat(question);
+                    
+                    const questionHTML = this._generateQuestionHTML(adaptedQuestion, index);
+                    
+                    document.getElementById('questionsContainer').innerHTML = questionHTML;
+                    
+                    if (typeof MathJax !== 'undefined') {
+                        MathJax.typesetPromise().catch(err => console.error(err));
+                    }
+                    this.initializeCharts(index);
+                    
+                    const submitBtn = document.getElementById('submit-answer');
+                    const isAnswered = APStatChain.hasUserAnswered(question.id);
+                    if (question.type === 'free-response') {
+                        submitBtn.style.display = 'none';
+                    } else {
+                        submitBtn.style.display = 'block';
+                        submitBtn.disabled = isAnswered;
+                        submitBtn.textContent = isAnswered ? 'Answered' : 'Submit Answer';
+                    }
+                    
+                    APStatChain.ui.updateHUD();
+                }
+            },
+
+            ui: {
+                isDarkMode: function() {
+                    return APStatChain.state.theme === 'dark';
+                },
+                toggleTheme: function() {
+                    APStatChain.state.theme = APStatChain.state.theme === 'light' ? 'dark' : 'light';
+                    document.body.classList.toggle('dark', APStatChain.ui.isDarkMode());
+                    localStorage.setItem('APStatChainTheme', APStatChain.state.theme);
+                    APStatChain.renderer.forceChartRerender();
+                },
+                updateHUD: function() {
+                    const total = APStatChain.questions.length;
+                    const current = APStatChain.state.currentIndex + 1;
+                    document.getElementById('progress').innerHTML = `Question ${current} of ${total}`;
+                    
+                    const answered = APStatChain.state.mempool ? APStatChain.state.mempool.length : 0;
+                    document.getElementById('my-progress').innerHTML = `My Progress: ${answered} Answered / 0 Mined`;
+                    
+                    document.getElementById('prev').disabled = (APStatChain.state.currentIndex === 0);
+                    document.getElementById('next').disabled = (APStatChain.state.currentIndex >= total - 1) || !APStatChain.hasUserAnswered(APStatChain.questions[APStatChain.state.currentIndex].id);
+                },
+                shouldShowExplanation: function(question) {
+                    return MASTER_CONFIG.showSolutions &&
+                           !question.id.includes('-PC-') &&
+                           question.type !== 'free-response' &&
+                           APStatChain.hasUserAnswered(question.id);
+                },
+                bindNavEvents: function() {
+                    document.getElementById('prev').addEventListener('click', async () => {
+                        if (APStatChain.state.currentIndex > 0) {
+                            APStatChain.state.currentIndex--;
+                            APStatChain.renderer.renderCurrentQuestion();
+                            await APStatChain.saveState();
+                        }
+                    });
+                    
+                    document.getElementById('next').addEventListener('click', async () => {
+                        if (APStatChain.state.currentIndex < APStatChain.questions.length - 1 && APStatChain.hasUserAnswered(APStatChain.questions[APStatChain.state.currentIndex].id)) {
+                            APStatChain.state.currentIndex++;
+                            APStatChain.renderer.renderCurrentQuestion();
+                            await APStatChain.saveState();
+                        }
+                    });
+                    
+                    document.getElementById('submit-answer').addEventListener('click', async () => {
+                        const question = APStatChain.questions[APStatChain.state.currentIndex];
+                        if (APStatChain.hasUserAnswered(question.id)) return;
+                        
+                        const selected = document.querySelector('input[name="answer"]:checked');
+                        if (!selected) {
+                            alert('Please select an answer');
+                            return;
+                        }
+                        await APStatChain.mempool.createTransaction(question.id, selected.value);
+                        APStatChain.renderer.renderCurrentQuestion();
+                        await APStatChain.saveState();
+                    });
+                    
+                    document.getElementById('themeToggle').addEventListener('click', () => {
+                        APStatChain.ui.toggleTheme();
+                    });
+                    
+                    document.getElementById('generate-qr').addEventListener('click', () => {
+                        APStatChain.sync.generateQR();
+                    });
+                    
+                    document.getElementById('scan-qr').addEventListener('click', () => {
+                        APStatChain.sync.startScanner();
+                    });
+                    
+                    document.getElementById('test-attest').addEventListener('click', () => {
+                        APStatChain.sync.startAttestationFlow('U1-L5-Q01');
+                    });
+
+                    // Event delegation for dynamic buttons
+                    document.addEventListener('click', async (e) => {
+                        if (e.target.id === 'log-frq-attempt') {
+                            const question = APStatChain.questions[APStatChain.state.currentIndex];
+                            if (APStatChain.hasUserAnswered(question.id)) return;
+                            
+                            const userText = document.getElementById('frq-response-box').value;
+                            if (!userText.trim()) {
+                                alert('Please enter your response');
+                                return;
+                            }
+                            await APStatChain.mempool.createTransaction(question.id, { textResponse: userText });
+                            APStatChain.renderer.renderCurrentQuestion();
+                            await APStatChain.saveState();
+                        } else if (e.target.id === 'get-tutor-help') {
+                            const question = APStatChain.questions[APStatChain.state.currentIndex];
+                            const userText = document.getElementById('frq-response-box').value;
+                            const promptStr = `Tutor me on this AP Statistics question... Here is the question: ${question.prompt}. Here is my attempt: ${userText}. For your reference, here is the official solution: ${JSON.stringify(question.solution)}.`;
+                            
+                            navigator.clipboard.writeText(promptStr).then(() => {
+                                window.open('https://grok.com', '_blank');
+                                document.getElementById('messageContainer').innerHTML = 'Prompt copied! Just paste (Ctrl+V) into the new tab to begin.';
+                                setTimeout(() => {
+                                    document.getElementById('messageContainer').innerHTML = '';
+                                }, 5000);
+                            }).catch(err => console.error('Failed to copy: ', err));
+                        }
+                    });
+                }
+            },
+
+            sync: {
+                generateQR: function() {
+                    const stateData = JSON.stringify(APStatChain.state);
+                    new QRCode(document.getElementById('qr-code'), stateData);
+                },
+                startScanner: function() {
+                    const video = document.getElementById('video');
+                    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream => {
+                        video.srcObject = stream;
+                        video.play();
+                        const canvas = document.getElementById('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const scan = () => {
+                            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                                canvas.width = video.videoWidth;
+                                canvas.height = video.videoHeight;
+                                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                                if (code) {
+                                    console.log('Scanned:', code.data);
+                                    stream.getTracks().forEach(track => track.stop());
+                                    return;
+                                }
+                            }
+                            requestAnimationFrame(scan);
+                        };
+                        scan();
+                    }).catch(err => console.error(err));
+                },
+                startAttestationFlow: function(questionId) {
+                    if (confirm('Attest to this answer?')) {
+                        APStatChain.mempool.createTransaction(questionId, 'ATTESTED');
+                        APStatChain.renderer.renderCurrentQuestion();
+                        APStatChain.saveState();
+                    }
+                }
+            },
+
+            mempool: {
+                createTransaction: async function(questionId, answer) {
+                    const tx = {
+                        questionId,
+                        answer, // string or object
+                        ownerPubKey: APStatChain.state.identity.publicKey,
+                        timestamp: Date.now()
+                    };
+                    APStatChain.state.mempool.push(tx);
+                    console.log('Transaction created:', tx);
+                }
+            },
+
+            saveState: async function() {
+                localStorage.setItem('APStatChainState', JSON.stringify(APStatChain.state));
+            },
+
+            init: async function() {
+                try {
+                    APStatChain.questions = POK_CURRICULUM;
+                    
+                    const savedState = localStorage.getItem('APStatChainState');
+                    
+                    if (savedState) {
+                        this.state = JSON.parse(savedState);
+                        
+                        if (!this.state.identity || !this.state.identity.publicKey) {
+                            throw new Error('Invalid saved state - missing identity');
+                        }
+                    } else {
+                        console.log("Creating new user identity...");
+                        const mnemonic = this.crypto.generateMnemonic();
+                        const keyPair = await this.crypto.deriveKeyPair(mnemonic);
+                        
+                        if (!keyPair) {
+                            throw new Error('Failed to generate key pair');
+                        }
+                        
+                        this.state = {
+                            identity: {
+                                mnemonic: mnemonic,
+                                publicKey: keyPair.publicKey,
+                                privateKey: keyPair.privateKey
+                            },
+                            currentIndex: 0,
+                            mempool: [],
+                            chain: [],
+                            peers: new Set(),
+                            theme: 'light'
+                        };
+                        
+                        await this.saveState();
+                    }
+                    
+                    const savedTheme = localStorage.getItem('APStatChainTheme');
+                    if (savedTheme) {
+                        this.state.theme = savedTheme;
+                        if (savedTheme === 'dark') {
+                            document.body.classList.add('dark');
+                        }
+                    }
+                    
+                    this.ui.bindNavEvents();
+                    
+                    this.renderer.renderCurrentQuestion();
+                    
+                } catch (e) {
+                    console.error('Initialization failed:', e);
+                    alert('Failed to initialize application. Please refresh the page.');
+                }
+            }
+        };
+
+        window.addEventListener('load', () => APStatChain.init());
+    </script>
+</body>
+</html>
