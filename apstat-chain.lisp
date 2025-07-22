@@ -69,10 +69,10 @@
   (format t "Initialized with ~a questions.~%" (length (gethash :curriculum *app-db*))))
 
 (defun submit-mcq-answer (question-id answer-key)
-  (let ((pubkey (getf (gethash :identity *app-db*) :public-key))
-        (txn (create-mcq-tx question-id pubkey answer-key)))
-    (add-tx-to-mempool txn)
-    (format t "Txn added to mempool: ~a~%" txn)))
+  (let ((pubkey (getf (gethash :identity *app-db*) :public-key)))
+    (let ((txn (create-mcq-tx question-id pubkey answer-key)))
+      (add-tx-to-mempool txn)
+      (format t "Txn added to mempool: ~a~%" txn))))
 
 ;; For persistence sim (save to file)
 (defun save-state ()

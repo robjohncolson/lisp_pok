@@ -1,0 +1,87 @@
+#lang racket
+
+(require json
+         crypto
+         (only-in crypto/sha2 sha256))
+
+;; Data Types (schemas)
+(struct payload (answer hash) #:transparent)
+(struct transaction (id timestamp owner-pubkey question-id payload) #:transparent)
+(struct block (hash txns) #:transparent)
+(struct question (id prompt) #:transparent) ; Add more per ADR-025
+(define *app-db* (make-hash)) ; Central state (mutable hash for REPL)
+
+;; Pure Functions
+(define (create-mcq-tx qid pubkey ans t)
+  (let ([hash (bytes->hex-string (sha256 (string->bytes/utf-8 ans)))])
+    (transaction (format "~a-tx" t) t pubkey qid (payload ans hash))))
+
+(define (valid-completion-txn? txn)
+  (and (not (string=? (transaction-owner-pubkey txn) ""))
+       (not (string=? (transaction-question-id txn) ""))
+       (not (string=? (payload-hash (transaction-payload txn) ""))
+       (> (transaction-timestamp txn) 0)))
+
+(define (add-tx-to-mempool txn)
+  (hash-update! *app-db* 'mempool (lambda (mp) (cons txn (or mp '()))) '()))
+
+(define (find-question-by-id q-id)
+  (findf (lambda (q) (string=? (question-id q) q-id)) (hash-ref *app-db* 'curriculum '())))
+
+(define (group-attestations attns)
+  (let ([dist (make-hash)])
+    (for-each (lambda (txn) (hash-update! dist (payload-hash (transaction-payload txn)) add1 0)) attns)
+    dist))
+
+(define (calculate-convergence qid)
+  (let* ([all-txns (append (hash-ref *app-db* 'mempool '()) (apply append (map block-txns (hash-ref *app-db* 'chain '()))))]
+         [attns (filter (lambda (txn) (string=? (transaction-question-id txn) qid)) all-txns)]
+         [dist (group-attestations attns)]
+         [total (apply + (hash-values dist))]
+         [max-count (if (zero? (hash-count dist)) 0 (apply max (hash-values dist)))])
+    (if (zero? total) 0.0 (/ max-count total 1.0))))
+
+(define (propose-block)
+  (let ([mempool (hash-ref *app-db* 'mempool '())]
+        [valid-txns (filter (lambda (txn) (>= (calculate-convergence (transaction-question-id txn)) 0.8)) mempool)]
+        [block (block (format "~a-block" (length (hash-ref *app-db* 'chain '()))) valid-txns)])
+    (when (not (null? valid-txns))
+      (hash-update! *app-db* 'chain (lambda (ch) (cons block (or ch '()))) '())
+      (hash-set! *app-db* 'mempool (remove* valid-txns mempool)))
+    (printf "Block proposed: ~a~%" block)))
+
+;; Effectful Orchestration
+(define (generate-new-identity)
+  (format "pubkey-~a" (gensym)))
+
+(define (init)
+  (hash-set! *app-db* 'identity (generate-new-identity))
+  (hash-set! *app-db* 'curriculum
+             (with-input-from-file "curriculum.json"
+               (lambda () (map (lambda (q) (question (hash-ref q 'id) (hash-ref q 'prompt)))
+                               (read-json)))))
+  (hash-set! *app-db* 'mempool '())
+  (hash-set! *app-db* 'chain '())
+  (printf "Initialized with ~a questions.~%" (length (hash-ref *app-db* 'curriculum))))
+
+(define (submit-mcq-answer qid ans)
+  (let ([pubkey (hash-ref *app-db* 'identity)]
+        [t 1234567890])  ; Simulate timestamp
+    (let ([txn (create-mcq-tx qid pubkey ans t)])
+      (if (valid-completion-txn? txn)
+          (begin
+            (add-tx-to-mempool txn)
+            (printf "Txn added to mempool: ~a~%" txn))
+          (printf "Invalid txn~%")))))
+
+;; REPL Entry
+(define (main)
+  (init)
+  (submit-mcq-answer "U1-L2-Q01" "B")
+  (submit-mcq-answer "U1-L2-Q01" "B")
+  (submit-mcq-answer "U1-L2-Q01" "B")
+  (printf "Convergence: ~a~%" (calculate-convergence "U1-L2-Q01"))
+  (propose-block)
+  (printf "Chain: ~a~%" (hash-ref *app-db* 'chain)))
+
+(main)  ; Run on load, or call in REPL
