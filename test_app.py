@@ -94,20 +94,25 @@ def test_logarithmic_scaling_convergence(engine, sample_node):
     assert math.isclose(weight_high / weight_low, math.log1p(1000) / math.log1p(10), rel_tol=1e-9)  # Log scaled
 
 def test_thought_leader_bonus(engine, sample_node):
-    # Setup: mined txn 'A', early attn <50%, late >50%
+    # Setup: mined txn 'A', early and late attestations
     engine.add_node('pub0', 'aces')
     engine.add_node('early', 'aces')
     engine.nodes['early'].reputation = 1.0
     engine.add_node('late', 'diligent')
     engine.nodes['late'].reputation = 1.0
-    mined_txn = engine.create_txn('q1', 'pub0', 'A', time.time(), 'completion')
+    # Create attestations with timestamps to simulate early (<50%) and late (>50%)
     attn_early = engine.create_txn('q1', 'early', 'A', time.time() - 20, 'attestation')
     attn_late = engine.create_txn('q1', 'late', 'A', time.time() - 10, 'attestation')
     sample_node.mempool = [attn_early, attn_late]
-    sample_node.consensus_history['q1'] = [{time.time() - 20: {'A': 0.4}}, {time.time() - 10: {'A': 0.6}}]
+    # Update history to reflect proportions at time of attestations
+    sample_node.consensus_history['q1'] = [
+        {attn_early.timestamp: {'A': 0.4}},  # Early: below threshold
+        {attn_late.timestamp: {'A': 0.6}}    # Late: above threshold
+    ]
+    mined_txn = engine.create_txn('q1', 'pub0', 'A', time.time(), 'completion')
     engine._update_reputation(sample_node, [mined_txn])
-    expected_early_rep = 1.0 + engine.thought_leader_bonus * math.log(1.0 + 1)
-    expected_late_rep = 1.0 + 1 * math.log(1.0 + 1)
+    expected_early_rep = 1.0 + engine.thought_leader_bonus * math.log1p(1.0)
+    expected_late_rep = 1.0 + 1.0 * math.log1p(1.0)
     assert math.isclose(engine.nodes['early'].reputation, expected_early_rep, rel_tol=1e-9)
     assert math.isclose(engine.nodes['late'].reputation, expected_late_rep, rel_tol=1e-9)
 
