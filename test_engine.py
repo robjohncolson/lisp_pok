@@ -15,6 +15,9 @@ def sample_node(engine):
     return node
 
 def test_calculate_convergence(engine, sample_node):
+    engine.add_node('pub1', 'aces')
+    engine.add_node('pub2', 'diligent')
+    engine.add_node('pub3', 'strugglers')
     # Predefined attestations
     txn1 = engine.create_txn('q1', 'pub1', 'A', time.time() - 10, 'attestation')
     txn2 = engine.create_txn('q1', 'pub2', 'A', time.time() - 5, 'attestation')
@@ -37,6 +40,8 @@ def test_update_reputation(engine, sample_node):
     assert engine.nodes['pub2'].reputation > 1.0  # Standard bonus
 
 def test_propose_pok_block(engine, sample_node):
+    engine.add_node('pub1', 'aces') # The attester needs to exist
+
     # Dynamic quorum: early progress (min 2)
     sample_node.progress = 0  # First half
     completion = engine.create_txn('q1', 'test_pubkey', 'A', time.time(), 'completion')
