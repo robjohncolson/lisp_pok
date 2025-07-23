@@ -1,0 +1,634 @@
+[
+  {
+    "id": "U1-L10-Q04",
+    "type": "free-response",
+    "prompt": "Show all your work. Indicate clearly the methods you use, because you will be scored on the correctness of your methods as well as on the accuracy and completeness of your results and explanations.\n\nThe following frequency table summarizes the total amounts, in dollars, for 91 orders from a food truck during a certain day.\n\n(a-i) Use the data in the table to create a histogram showing the distribution of the amounts of the orders.\n(a-ii) Describe the shape of the distribution of amounts.\n(b) Identify a possible amount for the median of the distribution. Justify your answer.",
+    "solution": {
+      "parts": [
+        {
+          "partId": "a-i",
+          "description": "Use the data in the table to create a histogram showing the distribution of the amounts of the orders.",
+          "response": "Create a histogram with 6 bars representing the frequency data from the table. The x-axis shows the amount ranges and the y-axis shows the frequency values.",
+          "attachments": {
+            "chartType": "histogram",
+            "xLabels": [
+              "0-5",
+              "5-10",
+              "10-15",
+              "15-20",
+              "20-25",
+              "25-30"
+            ],
+            "series": [
+              {
+                "name": "Frequency",
+                "values": [
+                  8,
+                  14,
+                  25,
+                  27,
+                  12,
+                  5
+                ]
+              }
+            ],
+            "chartConfig": {
+              "yAxis": {
+                "min": 0,
+                "max": 30,
+                "tickInterval": 5,
+                "title": "Frequency"
+              },
+              "xAxis": {
+                "title": "Amounts (in dollars)",
+                "labelType": "range"
+              },
+              "gridLines": {
+                "horizontal": true,
+                "vertical": false
+              },
+              "description": "Histogram showing distribution of order amounts with no gaps between bars"
+            }
+          }
+        },
+        {
+          "partId": "a-ii",
+          "description": "Describe the shape of the distribution of amounts.",
+          "response": "The distribution of the amounts of the orders appears to be roughly symmetric and mound shaped or approximately normal."
+        },
+        {
+          "partId": "b",
+          "description": "Identify a possible amount for the median of the distribution. Justify your answer.",
+          "response": "The median could be any value from $10 up to but not including $15. In a distribution of 91 values, the median value is the 46th value when all 91 values are ordered. The frequency of the first three bars sums to 47: 8 + 14 + 25 = 47. The 46th value corresponds to a value in the third bar of the histogram.",
+          "calculations": [
+            "Total values: 91",
+            "Median position: (91+1)/2 = 46th value",
+            "Cumulative frequency through $0-5: 8",
+            "Cumulative frequency through $5-10: 8 + 14 = 22",
+            "Cumulative frequency through $10-15: 8 + 14 + 25 = 47",
+            "Since 46 < 47, the 46th value falls in the $10-15 interval"
+          ]
+        }
+      ],
+      "scoring": {
+        "totalPoints": 4,
+        "rubric": [
+          {
+            "part": "a-i",
+            "maxPoints": 2,
+            "criteria": [
+              "The histogram contains six bars with approximately correct heights of the bars",
+              "The horizontal axis is labeled with correct numbers and a correct verbal description",
+              "The vertical axis is labeled with correct numbers and a correct verbal description"
+            ],
+            "scoringNotes": "Essentially correct (E) if the response contains all components. Partially correct (P) if the response satisfies 3 of the 4 components. Incorrect (I) if the response does not satisfy the criteria for E or P."
+          },
+          {
+            "part": "a-ii",
+            "maxPoints": 1,
+            "criteria": [
+              "The shape of the distribution is described as roughly symmetric and mound shaped or approximately normal"
+            ]
+          },
+          {
+            "part": "b",
+            "maxPoints": 1,
+            "criteria": [
+              "Response correctly identifies a value for the median that is contained within the interval from $10 up to but not including $15 AND provides a reasonable justification for how the median was determined"
+            ],
+            "scoringNotes": "Essentially correct (E) if both criteria met. Partially correct (P) if identifies correct interval BUT provides weak justification. Incorrect (I) if response does not satisfy criteria for E or P."
+          }
+        ]
+      }
+    },
+    "reasoning": "This question tests students' ability to construct and interpret histograms, describe distribution shapes, and calculate medians from grouped data. The key concepts include histogram construction, shape description using statistical vocabulary, and understanding median position in ordered data.",
+    "attachments": {
+      "table": [
+        [
+          "Amount",
+          "Frequency"
+        ],
+        [
+          "$0 up to but not including $5",
+          "8"
+        ],
+        [
+          "$5 up to but not including $10",
+          "14"
+        ],
+        [
+          "$10 up to but not including $15",
+          "25"
+        ],
+        [
+          "$15 up to but not including $20",
+          "27"
+        ],
+        [
+          "$20 up to but not including $25",
+          "12"
+        ],
+        [
+          "$25 up to but not including $30",
+          "5"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "U9-PC-MCQ-B-Q05",
+    "type": "multiple-choice",
+    "prompt": "Which of the following scatterplots provides evidence that the condition of equal variance for inference for the slope of a regression line has not been met?",
+    "answerKey": "C",
+    "reasoning": "The condition of equal variance appears to not be met in scatterplot C. As the value of the explanatory variable increases, the variability of the response variable increases dramatically, which violates the equal variance assumption needed for regression inference.",
+    "attachments": {
+      "charts": [
+        {
+          "chartType": "scatter",
+          "title": "Scatterplot A",
+          "points": [
+            {
+              "x": 1.0,
+              "y": 3.2
+            },
+            {
+              "x": 1.2,
+              "y": 2.8
+            },
+            {
+              "x": 2.1,
+              "y": 5.3
+            },
+            {
+              "x": 2.5,
+              "y": 5.0
+            },
+            {
+              "x": 3.0,
+              "y": 7.3
+            },
+            {
+              "x": 3.2,
+              "y": 6.7
+            },
+            {
+              "x": 3.4,
+              "y": 6.6
+            },
+            {
+              "x": 4.0,
+              "y": 9.6
+            },
+            {
+              "x": 4.2,
+              "y": 9.0
+            },
+            {
+              "x": 5.2,
+              "y": 11.7
+            },
+            {
+              "x": 5.5,
+              "y": 11.2
+            },
+            {
+              "x": 5.8,
+              "y": 11.5
+            },
+            {
+              "x": 6.2,
+              "y": 12.6
+            },
+            {
+              "x": 6.8,
+              "y": 13.3
+            }
+          ],
+          "chartConfig": {
+            "xAxis": {
+              "min": 0,
+              "max": 8,
+              "tickInterval": 1,
+              "title": "Explanatory Variable"
+            },
+            "yAxis": {
+              "min": 0,
+              "max": 16,
+              "tickInterval": 2,
+              "title": "Response Variable"
+            },
+            "gridLines": {
+              "horizontal": true,
+              "vertical": true
+            },
+            "description": "Scatterplot A showing a positive linear relationship with roughly constant variance."
+          }
+        },
+        {
+          "chartType": "scatter",
+          "title": "Scatterplot B",
+          "points": [
+            {
+              "x": 1.2,
+              "y": 13.4
+            },
+            {
+              "x": 1.5,
+              "y": 12.9
+            },
+            {
+              "x": 2.2,
+              "y": 12.7
+            },
+            {
+              "x": 2.6,
+              "y": 11.5
+            },
+            {
+              "x": 2.8,
+              "y": 11.3
+            },
+            {
+              "x": 3.0,
+              "y": 11.8
+            },
+            {
+              "x": 3.6,
+              "y": 9.3
+            },
+            {
+              "x": 3.8,
+              "y": 9.0
+            },
+            {
+              "x": 4.0,
+              "y": 9.7
+            },
+            {
+              "x": 4.6,
+              "y": 6.7
+            },
+            {
+              "x": 4.8,
+              "y": 7.0
+            },
+            {
+              "x": 5.0,
+              "y": 7.4
+            },
+            {
+              "x": 5.7,
+              "y": 5.1
+            },
+            {
+              "x": 6.0,
+              "y": 5.0
+            },
+            {
+              "x": 6.4,
+              "y": 4.2
+            },
+            {
+              "x": 6.8,
+              "y": 3.0
+            },
+            {
+              "x": 7.0,
+              "y": 3.3
+            }
+          ],
+          "chartConfig": {
+            "xAxis": {
+              "min": 0,
+              "max": 8,
+              "tickInterval": 1,
+              "title": "Explanatory Variable"
+            },
+            "yAxis": {
+              "min": 0,
+              "max": 16,
+              "tickInterval": 2,
+              "title": "Response Variable"
+            },
+            "gridLines": {
+              "horizontal": true,
+              "vertical": true
+            },
+            "description": "Scatterplot B showing a negative linear relationship with roughly constant variance."
+          }
+        },
+        {
+          "chartType": "scatter",
+          "title": "Scatterplot C",
+          "points": [
+            {
+              "x": 1.1,
+              "y": 3.3
+            },
+            {
+              "x": 1.3,
+              "y": 2.8
+            },
+            {
+              "x": 1.4,
+              "y": 3.7
+            },
+            {
+              "x": 2.1,
+              "y": 5.8
+            },
+            {
+              "x": 2.2,
+              "y": 4.4
+            },
+            {
+              "x": 2.3,
+              "y": 5.0
+            },
+            {
+              "x": 3.1,
+              "y": 8.6
+            },
+            {
+              "x": 3.2,
+              "y": 6.7
+            },
+            {
+              "x": 3.3,
+              "y": 5.0
+            },
+            {
+              "x": 4.1,
+              "y": 9.0
+            },
+            {
+              "x": 4.2,
+              "y": 5.8
+            },
+            {
+              "x": 4.5,
+              "y": 11.6
+            },
+            {
+              "x": 5.1,
+              "y": 7.9
+            },
+            {
+              "x": 5.2,
+              "y": 3.8
+            },
+            {
+              "x": 5.3,
+              "y": 13.9
+            },
+            {
+              "x": 6.0,
+              "y": 9.6
+            },
+            {
+              "x": 6.2,
+              "y": 3.8
+            },
+            {
+              "x": 6.2,
+              "y": 15.8
+            }
+          ],
+          "chartConfig": {
+            "xAxis": {
+              "min": 0,
+              "max": 7,
+              "tickInterval": 1,
+              "title": "Explanatory Variable"
+            },
+            "yAxis": {
+              "min": 0,
+              "max": 18,
+              "tickInterval": 2,
+              "title": "Response Variable"
+            },
+            "gridLines": {
+              "horizontal": true,
+              "vertical": true
+            },
+            "description": "Scatterplot C showing increasing variability in the response variable as the explanatory variable increases. This violates the equal variance condition (heteroscedasticity)."
+          }
+        },
+        {
+          "chartType": "scatter",
+          "title": "Scatterplot D",
+          "points": [
+            {
+              "x": 1.2,
+              "y": 2.1
+            },
+            {
+              "x": 1.5,
+              "y": 6.7
+            },
+            {
+              "x": 1.7,
+              "y": 12.9
+            },
+            {
+              "x": 2.5,
+              "y": 8.1
+            },
+            {
+              "x": 3.0,
+              "y": 11.3
+            },
+            {
+              "x": 3.1,
+              "y": 1.7
+            },
+            {
+              "x": 3.5,
+              "y": 5.4
+            },
+            {
+              "x": 3.9,
+              "y": 2.4
+            },
+            {
+              "x": 4.0,
+              "y": 11.8
+            },
+            {
+              "x": 4.4,
+              "y": 12.3
+            },
+            {
+              "x": 5.0,
+              "y": 7.4
+            },
+            {
+              "x": 5.1,
+              "y": 2.9
+            },
+            {
+              "x": 6.0,
+              "y": 9.0
+            },
+            {
+              "x": 6.1,
+              "y": 3.1
+            },
+            {
+              "x": 6.5,
+              "y": 5.3
+            },
+            {
+              "x": 6.5,
+              "y": 11.9
+            },
+            {
+              "x": 7.0,
+              "y": 3.2
+            },
+            {
+              "x": 7.0,
+              "y": 12.7
+            }
+          ],
+          "chartConfig": {
+            "xAxis": {
+              "min": 0,
+              "max": 8,
+              "tickInterval": 1,
+              "title": "Explanatory Variable"
+            },
+            "yAxis": {
+              "min": 0,
+              "max": 14,
+              "tickInterval": 2,
+              "title": "Response Variable"
+            },
+            "gridLines": {
+              "horizontal": true,
+              "vertical": true
+            },
+            "description": "Scatterplot D showing no clear linear relationship and a random spread of points."
+          }
+        },
+        {
+          "chartType": "scatter",
+          "title": "Scatterplot E",
+          "points": [
+            {
+              "x": 1.1,
+              "y": 7.8
+            },
+            {
+              "x": 1.2,
+              "y": 7.8
+            },
+            {
+              "x": 1.4,
+              "y": 7.8
+            },
+            {
+              "x": 2.5,
+              "y": 7.8
+            },
+            {
+              "x": 2.8,
+              "y": 7.8
+            },
+            {
+              "x": 3.0,
+              "y": 7.8
+            },
+            {
+              "x": 3.5,
+              "y": 7.8
+            },
+            {
+              "x": 3.7,
+              "y": 7.8
+            },
+            {
+              "x": 3.9,
+              "y": 7.8
+            },
+            {
+              "x": 4.5,
+              "y": 7.8
+            },
+            {
+              "x": 4.8,
+              "y": 7.8
+            },
+            {
+              "x": 5.2,
+              "y": 7.8
+            },
+            {
+              "x": 5.8,
+              "y": 7.8
+            },
+            {
+              "x": 6.0,
+              "y": 7.8
+            },
+            {
+              "x": 6.5,
+              "y": 7.8
+            },
+            {
+              "x": 6.8,
+              "y": 7.8
+            },
+            {
+              "x": 7.0,
+              "y": 7.8
+            }
+          ],
+          "chartConfig": {
+            "xAxis": {
+              "min": 0,
+              "max": 8,
+              "tickInterval": 1,
+              "title": "Explanatory Variable"
+            },
+            "yAxis": {
+              "min": 0,
+              "max": 16,
+              "tickInterval": 2,
+              "title": "Response Variable"
+            },
+            "gridLines": {
+              "horizontal": true,
+              "vertical": true
+            },
+            "description": "Scatterplot E showing all points on a horizontal line, indicating no relationship and zero variance in the response variable."
+          }
+        }
+      ],
+      "description": "Five scatterplots showing different variance patterns to assess the equal variance condition for regression inference",
+      "choices": [
+        {
+          "key": "A",
+          "value": "Scatterplot A"
+        },
+        {
+          "key": "B",
+          "value": "Scatterplot B"
+        },
+        {
+          "key": "C",
+          "value": "Scatterplot C"
+        },
+        {
+          "key": "D",
+          "value": "Scatterplot D"
+        },
+        {
+          "key": "E",
+          "value": "Scatterplot E"
+        }
+      ]
+    }
+  
+  }
+]
