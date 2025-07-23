@@ -19,12 +19,27 @@ class POKEngine:
         self.thought_leader_bonus = 2.5
         self.cleanup_age = 3  # days for incentivized cleanup
         # ADD THIS METHOD INSIDE THE POKEngine CLASS
+    def load_curriculum(self, file: str) -> List[Question]:
+        """Loads curriculum from JSON file."""
+        with open(file, 'r') as f:
+            data = json.load(f)
+            return [Question(q['id'], q['prompt'], q['type'], q.get('choices', []), q.get('answerKey')) for q in data]
 def add_node(self, pubkey: str, archetype: str, provisional_reputation: Optional[float] = None) -> Node:
     """Adds a new node, with provisional reputation if onboarding."""
     node = Node(pubkey, archetype, [], [], 0, provisional_reputation or 0.0, {})
     self.nodes[pubkey] = node
     return node
-
+def _lookup_prop(self, hist: List[Dict[float, Dict[str, float]]], timestamp: float) -> float:
+        """Looks up proportion at timestamp (simplified interpolation)."""
+        if not hist:
+            return 0.0
+        # Sort hist by timestamp and find closest
+        sorted_hist = sorted(hist, key=lambda x: list(x.keys())[0])
+        for entry in sorted_hist:
+            ts = list(entry.keys())[0]
+            if ts >= timestamp:
+                return max(entry[ts].values()) if entry[ts] else 0.0
+        return max(sorted_hist[-1][list(sorted_hist[-1].keys())[0]].values())  # Last state
 # ADD THIS METHOD INSIDE THE POKEngine CLASS
 def update_reputation(self, node: Node, mined_txns: List[Transaction]):
     """Updates reputation with Thought Leader bonus and log scaling."""
@@ -88,11 +103,6 @@ def propose_pok_block(self, node: Node):
     
     self.update_reputation(node, minable_completions)
 
-    def load_curriculum(self, file: str) -> List[Question]:
-        """Loads curriculum from JSON file."""
-        with open(file, 'r') as f:
-            data = json.load(f)
-            return [Question(q['id'], q['prompt'], q['type'], q.get('choices', []), q.get('answerKey')) for q in data]
 
     def create_txn(self, qid: str, pubkey: str, ans: str, t: float, txn_type: str) -> Transaction:
         """Creates a new transaction."""
@@ -119,8 +129,68 @@ def propose_pok_block(self, node: Node):
             node.chain.append(new_block)
             node.mempool = [txn for txn in node.mempool if txn not in attns]
             
+    def _update_consensus_history(self, node: Node, qid: str):
+        """Updates consensus history snapshot."""
+        current_time = time.time()
+        dist = {}
+        all_txns = node.mempool + [txn for block in node.chain for txn in block.txns]
+        attns = [txn for txn in all_txns if txn.question_id == qid and txn.type == "attestation" and txn.timestamp <= current_time]
+        for txn in attns:
+            dist[txn.payload.hash] = dist.get(txn.payload.hash, 0) + 1
+        total = sum(dist.values())
+        proportions = {k: v / total if total > 0 else 0 for k, v in dist.items()}
+        if qid not in node.consensus_history:
+            node.consensus_history[qid] = []
+        node.consensus_history[qid].append({current_time: proportions})
+    
+    
+    def update_reputation(self, node: Node, mined_txns: List[Transaction]):
+        """Updates reputation with Thought Leader bonus and log scaling."""
+        for txn in mined_txns:
+            qid = txn.question_id
+            final_ans_hash = txn.payload.hash
+            attns = [t for t in (node.mempool + [tx for b in node.chain for tx in b.txns]) if t.question_id == qid and t.type in ("attestation", "ap_reveal")]
+            for attn in attns:
+                attester_pubkey = attn.owner_pubkey
+                attester = self.nodes.get(attester_pubkey)
+                if attester and attn.payload.hash == final_ans_hash:
+                    hist = node.consensus_history.get(qid, [])
+                    prop_at_time = self._lookup_prop(hist, attn.timestamp)
+                    bonus = self.thought_leader_bonus if prop_at_time < self.thought_leader_thresh else 1.0
+                    weight = math.log(attester.reputation + 1)
+                    attester.reputation += bonus * weight
 
-            
+   
+
+    def sync_nodes(self, node1: Node, node2: Node):
+        """Syncs two nodes with longest chain rule and 25% gossip for attestations."""
+        if len(node1.chain) < len(node2.chain):
+            node1.chain = node2.chain[:]
+        elif len(node2.chain) < len(node1.chain):
+            node2.chain = node1.chain[:]
+        combined_attns = [txn for txn in (node1.mempool + node2.mempool + [tx for b in (node1.chain + node2.chain) for tx in b.txns]) if txn.type == "attestation"]
+        gossip_attns = random.sample(combined_attns, int(len(combined_attns) * 0.25)) if combined_attns else []
+        node1.mempool.extend([txn for txn in (node2.mempool + gossip_attns) if txn not in node1.mempool])
+        node2.mempool.extend([txn for txn in (node1.mempool + gossip_attns) if txn not in node2.mempool])
+        # Update history post-sync (simplified)
+        for qid in set([txn.question_id for txn in gossip_attns]):
+            self._update_consensus_history(node1, qid)
+            self._update_consensus_history(node2, qid)
+
+    
+
+    def add_node(self, pubkey: str, archetype: str, provisional_reputation: Optional[float] = None) -> Node:
+        """Adds a new node, with provisional reputation if onboarding."""
+        node = Node(pubkey, archetype, [], [], 0, provisional_reputation or 0.0, {})
+        self.nodes[pubkey] = node
+        return node
+
+    def submit_ap_reveal(self, teacher_pubkey: str, qid: str, ans: str):
+        """Submits a weighted AP reveal from teacher."""
+        txn = self.create_txn(qid, teacher_pubkey, ans, time.time(), "ap_reveal")
+        # Broadcast to all nodes (simplified: add to a random node mempool)
+        random_node = random.choice(list(self.nodes.values()))
+        random_node.mempool.append(txn)
 
 def propose_pok_block(self, node: Node):
     """Proposes a PoK block with dynamic quorum."""
@@ -162,72 +232,8 @@ def propose_pok_block(self, node: Node):
     
     # Update reputation for the owner of the completion transactions
     self.update_reputation(node, minable_completions)
-    def update_reputation(self, node: Node, mined_txns: List[Transaction]):
-        """Updates reputation with Thought Leader bonus and log scaling."""
-        for txn in mined_txns:
-            qid = txn.question_id
-            final_ans_hash = txn.payload.hash
-            attns = [t for t in (node.mempool + [tx for b in node.chain for tx in b.txns]) if t.question_id == qid and t.type in ("attestation", "ap_reveal")]
-            for attn in attns:
-                attester_pubkey = attn.owner_pubkey
-                attester = self.nodes.get(attester_pubkey)
-                if attester and attn.payload.hash == final_ans_hash:
-                    hist = node.consensus_history.get(qid, [])
-                    prop_at_time = self._lookup_prop(hist, attn.timestamp)
-                    bonus = self.thought_leader_bonus if prop_at_time < self.thought_leader_thresh else 1.0
-                    weight = math.log(attester.reputation + 1)
-                    attester.reputation += bonus * weight
 
-    def _lookup_prop(self, hist: List[Dict[float, Dict[str, float]]], timestamp: float) -> float:
-        """Looks up proportion at timestamp (simplified interpolation)."""
-        if not hist:
-            return 0.0
-        # Sort hist by timestamp and find closest
-        sorted_hist = sorted(hist, key=lambda x: list(x.keys())[0])
-        for entry in sorted_hist:
-            ts = list(entry.keys())[0]
-            if ts >= timestamp:
-                return max(entry[ts].values()) if entry[ts] else 0.0
-        return max(sorted_hist[-1][list(sorted_hist[-1].keys())[0]].values())  # Last state
+    
 
-    def sync_nodes(self, node1: Node, node2: Node):
-        """Syncs two nodes with longest chain rule and 25% gossip for attestations."""
-        if len(node1.chain) < len(node2.chain):
-            node1.chain = node2.chain[:]
-        elif len(node2.chain) < len(node1.chain):
-            node2.chain = node1.chain[:]
-        combined_attns = [txn for txn in (node1.mempool + node2.mempool + [tx for b in (node1.chain + node2.chain) for tx in b.txns]) if txn.type == "attestation"]
-        gossip_attns = random.sample(combined_attns, int(len(combined_attns) * 0.25)) if combined_attns else []
-        node1.mempool.extend([txn for txn in (node2.mempool + gossip_attns) if txn not in node1.mempool])
-        node2.mempool.extend([txn for txn in (node1.mempool + gossip_attns) if txn not in node2.mempool])
-        # Update history post-sync (simplified)
-        for qid in set([txn.question_id for txn in gossip_attns]):
-            self._update_consensus_history(node1, qid)
-            self._update_consensus_history(node2, qid)
+            
 
-    def _update_consensus_history(self, node: Node, qid: str):
-        """Updates consensus history snapshot."""
-        current_time = time.time()
-        dist = {}
-        all_txns = node.mempool + [txn for block in node.chain for txn in block.txns]
-        attns = [txn for txn in all_txns if txn.question_id == qid and txn.type == "attestation" and txn.timestamp <= current_time]
-        for txn in attns:
-            dist[txn.payload.hash] = dist.get(txn.payload.hash, 0) + 1
-        total = sum(dist.values())
-        proportions = {k: v / total if total > 0 else 0 for k, v in dist.items()}
-        if qid not in node.consensus_history:
-            node.consensus_history[qid] = []
-        node.consensus_history[qid].append({current_time: proportions})
-
-    def add_node(self, pubkey: str, archetype: str, provisional_reputation: Optional[float] = None) -> Node:
-        """Adds a new node, with provisional reputation if onboarding."""
-        node = Node(pubkey, archetype, [], [], 0, provisional_reputation or 0.0, {})
-        self.nodes[pubkey] = node
-        return node
-
-    def submit_ap_reveal(self, teacher_pubkey: str, qid: str, ans: str):
-        """Submits a weighted AP reveal from teacher."""
-        txn = self.create_txn(qid, teacher_pubkey, ans, time.time(), "ap_reveal")
-        # Broadcast to all nodes (simplified: add to a random node mempool)
-        random_node = random.choice(list(self.nodes.values()))
-        random_node.mempool.append(txn)

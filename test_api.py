@@ -36,11 +36,20 @@ def test_sync_nodes(client):
     assert len(app.engine.nodes['pub2'].chain) == 2  # Longest chain wins
 
 def test_propose_block(client):
-    app.engine.nodes['pub1'].mempool = [app.engine.create_txn('q1', 'pub1', 'A', time.time(), 'completion')]
-    # Add enough attns for quorum
+    # The node 'pub1' has a completion transaction in its mempool
+    completion_txn = app.engine.create_txn('q1', 'pub1', 'A', time.time(), 'completion')
+    app.engine.nodes['pub1'].mempool.append(completion_txn)
+
+    # 'pub1' has also received attestations from other nodes (e.g., via sync)
     for i in range(5):
-        app.engine.nodes['pub1'].mempool.append(app.engine.create_txn('q1', f'pub{i}', 'A', time.time(), 'attestation'))
+        attester_pubkey = f'pub{i}' # pub0, pub1, pub2, pub3, pub4
+        attestation_txn = app.engine.create_txn('q1', attester_pubkey, 'A', time.time(), 'attestation')
+        app.engine.nodes['pub1'].mempool.append(attestation_txn)
+    
+    # Now, pub1 should be able to propose a block for its own work
     response = client.post('/block/propose/pub1')
     assert response.status_code == 200
-    assert len(app.engine.nodes['pub1'].chain) > 0
+    
+    # Verify the block was created and the mempool was cleared
+    assert len(app.engine.nodes['pub1'].chain) == 1
     assert len(app.engine.nodes['pub1'].mempool) == 0
