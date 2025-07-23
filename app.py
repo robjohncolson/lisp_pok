@@ -63,6 +63,7 @@ class POKEngine:
         self.thought_leader_thresh = 0.5
         self.thought_leader_bonus = 2.5
         self.cleanup_age = 3  # days for incentivized cleanup
+    
 
     def _load_curriculum(self, file: str) -> List[Question]:
         """Loads curriculum from JSON file."""
@@ -70,11 +71,17 @@ class POKEngine:
             data = json.load(f)
             return [Question(q['id'], q['prompt'], q.get('type', 'mcq'), q.get('choices', []), q.get('answerKey')) for q in data]
 
-    def add_node(self, pubkey: str, archetype: str) -> Node:
-        """Adds a new node."""
-        node = Node(pubkey, archetype, [], [], 0, 0.0, {})
-        self.nodes[pubkey] = node
-        return node
+def add_node(self, pubkey: str, archetype: str, provisional_reputation: Optional[float] = None) -> Node:
+    """Adds a new node with optional provisional reputation."""
+    if provisional_reputation is None:
+        if self.nodes:
+            reps = [node.reputation for node in self.nodes.values()]
+            provisional_reputation = statistics.median(reps)
+        else:
+            provisional_reputation = 1.0
+    node = Node(pubkey, archetype, [], [], 0, provisional_reputation, {})
+    self.nodes[pubkey] = node
+    return node
 
     def create_txn(self, qid: str, pubkey: str, ans: str, t: float, txn_type: str) -> Transaction:
         """Creates a new transaction."""
@@ -100,24 +107,28 @@ class POKEngine:
             node.chain.append(new_block)
             node.mempool = [txn for txn in node.mempool if txn not in attns]
 
-    def propose_pok_block(self, node: Node):
-        """Proposes a PoK block with dynamic quorum."""
-        mempool = node.mempool
-        q_index = node.progress
-        min_attest = 2 if q_index < len(self.curriculum) // 2 else 4
-        valid_txns = []
-        for txn in mempool:
-            if txn.type == "completion":
-                conv = self.calculate_convergence(node, txn.question_id)
-                attns_count = len([t for t in (mempool + [tx for b in node.chain for tx in b.txns]) if t.question_id == txn.question_id and t.type == "attestation"])
-                if attns_count >= min_attest and conv >= self.quorum_conv_thresh:
-                    valid_txns.append(txn)
-        if valid_txns:
-            block_hash = f"{len(node.chain)}-pok-block"
-            new_block = Block(block_hash, valid_txns, "pok")
-            node.chain.append(new_block)
-            node.mempool = [txn for txn in node.mempool if txn not in valid_txns]
-            self._update_reputation(node, valid_txns)
+def propose_pok_block(self, node: Node):
+    """Proposes a PoK block with dynamic quorum."""
+    mempool = node.mempool[:]
+    q_index = node.progress
+    min_attest = 2 if q_index < len(self.curriculum) // 2 else 4
+    valid_completions = []
+    all_attns_to_bundle = []
+    for txn in mempool:
+        if txn.type == "completion":
+            conv = self.calculate_convergence(node, txn.question_id)
+            attns = [t for t in mempool if t.question_id == txn.question_id and t.type in ("attestation", "ap_reveal")]
+            attns_count = len(attns)
+            if attns_count >= min_attest and conv >= self.quorum_conv_thresh:
+                valid_completions.append(txn)
+                all_attns_to_bundle.extend(attns)
+    valid_txns = valid_completions + all_attns_to_bundle
+    if valid_completions:
+        block_hash = f"{len(node.chain)}-pok-block"
+        new_block = Block(block_hash, valid_txns, "pok")
+        node.chain.append(new_block)
+        node.mempool = [txn for txn in mempool if txn not in valid_txns]
+        self._update_reputation(node, valid_completions)
 
     def _update_reputation(self, node: Node, mined_txns: List[Transaction]):
         """Updates reputation with Thought Leader bonus and log scaling."""
@@ -183,6 +194,16 @@ app = Flask(__name__)
 @app.route('/init', methods=['GET'])
 def init():
     return jsonify({"status": "initialized", "curriculum_length": len(engine.curriculum)}), 200
+
+@app.route('/node/add', methods=['POST'])
+def add_node():
+    data = request.json
+    if not data or 'pubkey' not in data or 'archetype' not in data:
+        return jsonify({"error": "Missing pubkey or archetype"}), 400
+    if data['pubkey'] in engine.nodes:
+        return jsonify({"error": "Node already exists"}), 409
+    node = engine.add_node(data['pubkey'], data['archetype'])
+    return jsonify({"status": "node added", "pubkey": node.pubkey}), 201
 
 @app.route('/state/<pubkey>', methods=['GET'])
 def get_state(pubkey):

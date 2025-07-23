@@ -23,6 +23,8 @@ def test_init(client):
     assert data['status'] == 'initialized'
     assert 'curriculum_length' in data
 
+
+
 def test_add_node(client):
     # Assuming /node/add endpoint is implemented as POST with JSON {pubkey, archetype}
     response = client.post('/node/add', json={'pubkey': 'test_pubkey', 'archetype': 'aces'})
@@ -110,9 +112,11 @@ def test_thought_leader_bonus(engine, sample_node):
     sample_node.mempool = [attn_early, attn_late]
     sample_node.consensus_history['q1'] = [{time.time() - 20: {'A': 0.4}}, {time.time() - 10: {'A': 0.6}}]
     engine._update_reputation(sample_node, [mined_txn])
-    assert engine.nodes['early'].reputation > 1.0 + engine.thought_leader_bonus * math.log(1.0 + 1)  # Bonus
-    assert math.isclose(engine.nodes['late'].reputation, 1.0 + 1 * math.log(1.0 + 1), rel_tol=1e-9)  # Standard
-
+    expected_early_rep = 1.0 + engine.thought_leader_bonus * math.log(1.0 + 1)
+    expected_late_rep = 1.0 + 1 * math.log(1.0 + 1)
+    assert math.isclose(engine.nodes['early'].reputation, expected_early_rep, rel_tol=1e-9)
+    assert math.isclose(engine.nodes['late'].reputation, expected_late_rep, rel_tol=1e-9)
+    
 def test_teacher_reveal_weight(engine, sample_node):
     # Setup: one standard attn 'A', one ap_reveal 'A' (weight 10)
     txn_standard = engine.create_txn('q1', 'pub1', 'A', time.time(), 'attestation')
