@@ -1,20 +1,26 @@
 # test_api.py
 import pytest
+import time
 from app import app
-from pok_engine import POKEngine
+from pok_engine import POKEngine, Block
 
+# REPLACE the old client fixture with this one
 @pytest.fixture
 def client():
+    # Reset the engine's state before each test
+    app.engine = POKEngine('pok_curriculum_trimmed.json')
+    
+    # Create all nodes that will participate in the tests
+    app.engine.add_node('pub0', 'aces')
+    app.engine.add_node('pub1', 'aces')
+    app.engine.add_node('pub2', 'diligent')
+    app.engine.add_node('pub3', 'diligent')
+    app.engine.add_node('pub4', 'strugglers')
+    
     app.config['TESTING'] = True
     with app.test_client() as client:
         yield client
 
-@pytest.fixture
-def engine():
-    eng = POKEngine('pok_curriculum_trimmed.json')
-    eng.add_node('pub1', 'aces')
-    eng.add_node('pub2', 'diligent')
-    return eng
 
 def test_create_txn(client):
     response = client.post('/txn/create', json={'qid': 'q1', 'pubkey': 'pub1', 'ans': 'A', 'type': 'completion'})
