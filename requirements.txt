@@ -1,4 +1,2 @@
-Flask
-Flask-Cors
-pytest
-numpy
+# requirements.txt
+flask==2.0.1
