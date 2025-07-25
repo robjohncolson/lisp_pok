@@ -1,18 +1,15 @@
-# verify_sim.py (v1.0 - Canonical)
+# verify_sim.py (v1.1 - Final Verified Version)
 
 import time
 import random
 import statistics
 from collections import Counter
-from app import POKEngine, Node, Question, Transaction, Block, Payload
 
-# --- Schema Modification for Simulation ---
-# Dynamically add the simulation-specific fields to the Transaction dataclass
-# This allows our engine to remain pure while the simulation can track metadata.
-
+# CRITICAL: Import the verified classes directly from our canonical app.py
+from app import POKEngine, Node, Question, Transaction
 
 # --- Simulation Parameters (Canonized) ---
-SIM_DAYS = 30 # Scaled down from 180 for feasible test runs
+SIM_DAYS = 30
 MEETINGS_PER_WEEK = 4
 QUESTIONS_PER_DAY = 5
 TOTAL_NODES = 40
@@ -22,7 +19,7 @@ ARCHETYPES = {
     'aces': 0.95,
     'diligent': 0.80,
     'strugglers': 0.60,
-    'guessers': 0.25 # Assuming 4-choice MCQ
+    'guessers': 0.25
 }
 
 # --- Metric Calculation Functions ---
@@ -43,22 +40,22 @@ def calculate_truth_accuracy(engine: POKEngine) -> float:
     return (correct_mcqs / total_mined_mcqs) * 100 if total_mined_mcqs > 0 else 100.0
 
 def calculate_block_latency(engine: POKEngine) -> float:
-    if hasattr(txn, 'creation_day') and txn.creation_day is not None and hasattr(txn, 'mined_day') and txn.mined_day is not None:
-        latency = txn.mined_day - txn.creation_day
     latencies = []
+    # Find all completion transactions that have been mined
     all_mined_completions = [
         txn for node in engine.nodes.values()
         for block in node.chain if block.type == 'pok'
-        for txn in block.txns if txn.type == 'completion' and hasattr(txn, 'mined_day') and txn.mined_day is not None
+        for txn in block.txns if txn.type == 'completion'
     ]
 
     if not all_mined_completions:
         return 0.0
 
     for txn in all_mined_completions:
-        if hasattr(txn, 'creation_day') and txn.creation_day is not None:
+        # Check if the transaction has our simulation metadata
+        if hasattr(txn, 'creation_day') and hasattr(txn, 'mined_day'):
             latency = txn.mined_day - txn.creation_day
-            if latency >= 0: # Ensure no weird timing issues
+            if latency >= 0:
                 latencies.append(latency)
 
     return statistics.mean(latencies) if latencies else 0.0
@@ -71,7 +68,7 @@ def calculate_chain_fragmentation(engine: POKEngine) -> float:
     try:
         max_len = max(chain_lengths)
     except ValueError:
-        return 0.0 # Handle case where all chains are empty
+        return 0.0
 
     if max_len == 0: return 0.0
     
@@ -114,12 +111,10 @@ def run_simulation():
                 q = engine.curriculum[q_index]
                 
                 is_correct = random.random() < ARCHETYPES.get(node.archetype, 0.5)
-                ans = q.answer_key if is_correct and q.answer_key else 'B' # Default wrong answer
+                ans = q.answer_key if is_correct and q.answer_key else 'B'
                 
                 txn = engine.create_txn(q.id, node.pubkey, ans, time.time(), 'completion')
-                txn.creation_day = day # Stamp the creation day
-                setattr(txn, 'creation_day', day) 
-
+                setattr(txn, 'creation_day', day) # Attach simulation metadata
                 node.mempool.append(txn)
                 node.progress += 1
         
@@ -132,7 +127,6 @@ def run_simulation():
             all_pubkeys = list(engine.nodes.keys())
             random.shuffle(all_pubkeys)
             
-            # Peer-to-Peer Sync & Attestation
             for i in range(0, len(all_pubkeys) - 1, 2):
                 node1 = engine.nodes[all_pubkeys[i]]
                 node2 = engine.nodes[all_pubkeys[i+1]]
@@ -152,7 +146,6 @@ def run_simulation():
                                 attestation_txn = engine.create_txn(q.id, node.pubkey, ans, time.time(), 'attestation')
                                 node.mempool.append(attestation_txn)
 
-            # Asynchronous Mining & Timestamping
             for node in engine.nodes.values():
                 chain_len_before = len(node.chain)
                 engine.propose_attestation_block(node)
@@ -164,9 +157,7 @@ def run_simulation():
                         if new_block.type == 'pok':
                             for txn in new_block.txns:
                                 if txn.type == 'completion' and not hasattr(txn, 'mined_day'):
-                                    txn.mined_day = day
                                     setattr(txn, 'mined_day', day)
-
 
         # PHASE 3: END OF DAY LOGGING
         daily_fragmentation_log.append(calculate_chain_fragmentation(engine))
@@ -176,7 +167,7 @@ def run_simulation():
     print("\n--- Simulation Complete. Generating Final Report... ---")
     
     final_accuracy = calculate_truth_accuracy(engine)
-    final_latency = calculate_block_latency(engine) # Now using real data
+    final_latency = calculate_block_latency(engine)
     final_fragmentation = statistics.mean(daily_fragmentation_log) if daily_fragmentation_log else 0.0
 
     with open('simulation_results_python.md', 'w') as f:
