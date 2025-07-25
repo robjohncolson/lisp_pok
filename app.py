@@ -231,7 +231,34 @@ class POKEngine:
                     # Update running distribution
                     dist[attn.payload.hash] = dist.get(attn.payload.hash, 0) + 1
                     total_count += 1
+# ADD THIS METHOD INSIDE THE POKEngine CLASS in app.py
+    def sync_nodes(self, node1: Node, node2: Node):
+        """Syncs two nodes with longest chain rule and 25% gossip for attestations."""
+        if len(node1.chain) < len(node2.chain):
+            node1.chain = list(node2.chain)
+        elif len(node2.chain) < len(node1.chain):
+            node2.chain = list(node1.chain)
 
+        # Use sets for efficient handling of unique transactions
+        node1_mempool_ids = {t.id for t in node1.mempool}
+        node2_mempool_ids = {t.id for t in node2.mempool}
+        
+        all_txns_map = {t.id: t for t in node1.mempool + node2.mempool}
+
+        node1.mempool.extend([t for t_id, t in all_txns_map.items() if t_id not in node1_mempool_ids])
+        node2.mempool.extend([t for t_id, t in all_txns_map.items() if t_id not in node2_mempool_ids])
+
+        # Gossip Protocol
+        all_attestations = [txn for txn in all_txns_map.values() if txn.type == "attestation"]
+        if all_attestations:
+            gossip_sample_size = int(len(all_attestations) * 0.25)
+            gossip_txns = random.sample(all_attestations, gossip_sample_size)
+            gossip_ids = {t.id for t in gossip_txns}
+            
+            node1.mempool.extend([t for t in gossip_txns if t.id not in node1_mempool_ids])
+            node2.mempool.extend([t for t in gossip_txns if t.id not in node2_mempool_ids])
+
+        
     def _lookup_prop(self, hist: List, timestamp: float) -> float:
         """Helper method to lookup proportion at a given timestamp."""
         # Implementation needed - placeholder for now
