@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APStat Chain Mission Control</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f4f8;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .hud {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .hud-item {
+            text-align: center;
+        }
+        .question {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .chart-container {
+            width: 100%;
+            height: 300px;
+            margin: 20px 0;
+        }
+        button {
+            background: linear-gradient(135deg, #ff9a9e, #fad0c4);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 600px;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ffcccc;
+            color: #cc0000;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        #onboarding {
+            display: none;
+            text-align: center;
+        }
+        select {
+            padding: 10px;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="onboarding">
+        <h2>Welcome to APStat Chain</h2>
+        <p>Choose your archetype:</p>
+        <select id="archetype-select">
+            <option value="aces">Aces</option>
+            <option value="diligent">Diligent</option>
+            <option value="strugglers">Strugglers</option>
+            <option value="guessers">Guessers</option>
+        </select>
+        <button onclick="onboardUser()">Create Profile</button>
+    </div>
+    <div class="container" id="dashboard" style="display: none;">
+        <div class="hud">
+            <div class="hud-item">
+                <h3>Reputation</h3>
+                <p id="reputation">0</p>
+            </div>
+            <div class="hud-item">
+                <h3>Mempool Size</h3>
+                <p id="mempool-size">0</p>
+            </div>
+            <div class="hud-item">
+                <h3>Chain Length</h3>
+                <p id="chain-length">0</p>
+            </div>
+        </div>
+        <div class="question" id="question-container">
+            <h2 id="question-title">Loading...</h2>
+            <p id="question-prompt"></p>
+            <div id="question-choices"></div>
+            <div id="chart-container" class="chart-container"></div>
+            <textarea id="frq-input" style="display: none; width: 100%; height: 100px;"></textarea>
+            <button id="submit-answer" style="display: none;">Submit Answer</button>
+            <button id="previous">Previous</button>
+            <button id="next" disabled>Next</button>
+        </div>
+        <button onclick="syncAndAttest()">Sync & Attest with a Peer</button>
+    </div>
+    <div class="modal" id="attestation-modal">
+        <div class="modal-content">
+            <h2>Attest to Peer's Answer</h2>
+            <p id="attest-question"></p>
+            <div id="attest-choices"></div>
+            <textarea id="attest-frq-score" style="display: none; width: 100%; height: 50px;" placeholder="Score 1-5"></textarea>
+            <button onclick="submitAttestation()">Submit Attestation</button>
+            <button onclick="closeModal()">Close</button>
+        </div>
+    </div>
+    <div class="notification" id="notification"></div>
+
+    <script>
+        let curriculum = [];
+        let state = {};
+        let currentQuestionIndex = 0;
+        let pubkey = localStorage.getItem('pubkey');
+        let currentAttestTxn = null;
+        const backendUrl = 'http://127.0.0.1:5000';
+
+        async function loadData() {
+            try {
+                const [curriculumRes, stateRes] = await Promise.all([
+                    fetch(`${backendUrl}/curriculum`),
+                    fetch(`${backendUrl}/state/${pubkey}`)
+                ]);
+                curriculum = await curriculumRes.json();
+                state = await stateRes.json();
+                currentQuestionIndex = state.progress % curriculum.length;
+                renderDashboard();
+            } catch (err) {
+                showNotification('Failed to load data. Ensure backend is running.');
+            }
+        }
+
+        function renderDashboard() {
+            document.getElementById('reputation').textContent = state.reputation.toFixed(2);
+            document.getElementById('mempool-size').textContent = state.mempool.length;
+            document.getElementById('chain-length').textContent = state.chain.length;
+
+            const question = curriculum[currentQuestionIndex];
+            document.getElementById('question-title').textContent = question.id;
+            document.getElementById('question-prompt').textContent = question.prompt;
+
+            const choicesDiv = document.getElementById('question-choices');
+            choicesDiv.innerHTML = '';
+            if (question.qtype === 'mcq') {
+                question.choices.forEach(choice => {
+                    const btn = document.createElement('button');
+                    btn.textContent = choice.key + ': ' + choice.value;
+                    btn.onclick = () => submitAnswer(choice.key);
+                    choicesDiv.appendChild(btn);
+                });
+                document.getElementById('submit-answer').style.display = 'none';
+                document.getElementById('frq-input').style.display = 'none';
+            } else {
+                document.getElementById('frq-input').style.display = 'block';
+                document.getElementById('submit-answer').style.display = 'block';
+                document.getElementById('submit-answer').onclick = () => submitAnswer(document.getElementById('frq-input').value);
+            }
+
+            renderChart(question.attachments);  // Assuming attachments has chart data
+            document.getElementById('next').disabled = currentQuestionIndex === state.progress;
+        }
+
+        function renderChart(attachments) {
+            const ctx = document.getElementById('chart-container').getContext('2d');
+            if (window.myChart) window.myChart.destroy();
+            if (attachments && attachments.chartType) {
+                window.myChart = new Chart(ctx, {
+                    type: attachments.chartType,
+                    data: {
+                        labels: attachments.xLabels,
+                        datasets: attachments.series.map(s => ({ label: s.name, data: s.values }))
+                    },
+                    options: {
+                        scales: {
+                            x: { title: { display: true, text: attachments.chartConfig.xAxis.title } },
+                            y: { title: { display: true, text: attachments.chartConfig.yAxis.title } }
+                        }
+                    }
+                });
+            }
+        }
+
+        async function submitAnswer(ans) {
+            try {
+                await fetch(`${backendUrl}/txn/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pubkey, qid: curriculum[currentQuestionIndex].id, ans, type: 'completion' })
+                });
+                await loadData();
+            } catch (err) {
+                showNotification('Failed to submit answer.');
+            }
+        }
+
+        async function syncAndAttest() {
+            try {
+                const nodesRes = await fetch(`${backendUrl}/nodes`);
+                const nodes = await nodesRes.json();
+                const peer = nodes.filter(p => p !== pubkey)[Math.floor(Math.random() * (nodes.length - 1))];
+                await fetch(`${backendUrl}/sync`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pubkey1: pubkey, pubkey2: peer })
+                });
+                // Attest to 1-3 completions
+                state = await (await fetch(`${backendUrl}/state/${pubkey}`)).json();
+                const completions = state.mempool.filter(txn => txn.type === 'completion' && txn.owner_pubkey !== pubkey);
+                const toAttest = completions.sort(() => 0.5 - Math.random()).slice(0, Math.floor(Math.random() * 3) + 1);
+                if (toAttest.length > 0) {
+                    currentAttestTxn = toAttest[0];  // Handle one at a time for simplicity
+                    renderAttestModal(currentAttestTxn);
+                } else {
+                    await mineBlock();
+                }
+            } catch (err) {
+                showNotification('Sync failed.');
+            }
+        }
+
+        function renderAttestModal(txn) {
+            const question = curriculum.find(q => q.id === txn.question_id);
+            document.getElementById('attest-question').textContent = question.prompt;
+            const choicesDiv = document.getElementById('attest-choices');
+            choicesDiv.innerHTML = '';
+            if (question.qtype === 'mcq') {
+                question.choices.forEach(choice => {
+                    const btn = document.createElement('button');
+                    btn.textContent = choice.key + ': ' + choice.value;
+                    btn.onclick = () => submitAttestation(choice.key);
+                    choicesDiv.appendChild(btn);
+                });
+                document.getElementById('attest-frq-score').style.display = 'none';
+            } else {
+                document.getElementById('attest-frq-score').style.display = 'block';
+                document.getElementById('attest-frq-score').placeholder = `Score peer's response: ${txn.payload.answer}`;
+            }
+            document.getElementById('attestation-modal').style.display = 'flex';
+        }
+
+        async function submitAttestation(ans) {
+            try {
+                await fetch(`${backendUrl}/txn/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pubkey, qid: currentAttestTxn.question_id, ans, type: 'attestation' })
+                });
+                closeModal();
+                await mineBlock();
+            } catch (err) {
+                showNotification('Attestation failed.');
+            }
+        }
+
+        async function mineBlock() {
+            await fetch(`${backendUrl}/block/propose/${pubkey}`, { method: 'POST' });
+            await loadData();
+        }
+
+        function closeModal() {
+            document.getElementById('attestation-modal').style.display = 'none';
+        }
+
+        function showNotification(msg) {
+            const notif = document.getElementById('notification');
+            notif.textContent = msg;
+            notif.style.display = 'block';
+            setTimeout(() => notif.style.display = 'none', 3000);
+        }
+
+        function onboardUser() {
+            const archetype = document.getElementById('archetype-select').value;
+            const pubkey = `user-${Math.random().toString(36).substr(2, 9)}`;
+            fetch(`${backendUrl}/node/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pubkey, archetype })
+            }).then(res => res.json()).then(data => {
+                localStorage.setItem('pubkey', data.pubkey);
+                document.getElementById('onboarding').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                loadData();
+            }).catch(err => showNotification('Onboarding failed.'));
+        }
+
+        window.onload = () => {
+            if (pubkey) {
+                document.getElementById('onboarding').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                loadData();
+            } else {
+                document.getElementById('onboarding').style.display = 'block';
+            }
+            document.getElementById('previous').onclick = () => {
+                if (currentQuestionIndex > 0) currentQuestionIndex--;
+                renderDashboard();
+            };
+            document.getElementById('next').onclick = () => {
+                if (currentQuestionIndex < curriculum.length - 1) currentQuestionIndex++;
+                renderDashboard();
+            };
+        };
+    </script>
+</body>
+</html>
