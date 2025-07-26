@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APStat Chain Mission Control</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f0f4f8;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            width: 95%;
+            max-width: 1400px;
+            background: linear-gradient(135deg, #ffffff, #f0f4f8);
+            border-radius: 20px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            margin: 20px auto;
+        }
+        .hud {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            font-size: 1.2em;
+        }
+        .hud-item {
+            text-align: center;
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .hud-item h3 {
+            margin: 0 0 10px;
+            font-size: 1.2em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .hud-item p {
+            font-size: 2.5em;
+            margin: 0;
+            font-weight: bold;
+        }
+        .question {
+            border: 1px solid rgba(0,0,0,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 40px;
+            background: white;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        }
+        .question h2 {
+            margin: 0 0 20px;
+            font-size: 1.8em;
+            color: #333;
+            border-bottom: 2px solid #4facfe;
+            padding-bottom: 10px;
+        }
+        .question p {
+            line-height: 1.8;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            margin-bottom: 30px;
+        }
+        button {
+            background: linear-gradient(135deg, #ff9a9e, #fad0c4);
+            border: none;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: opacity 0.2s, transform 0.2s;
+            margin: 5px;
+        }
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        textarea {
+            width: 100%;
+            box-sizing: border-box;
+            height: 200px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 1em;
+            resize: vertical;
+        }
+        label {
+            display: block;
+            margin: 10px 0;
+            font-size: 1em;
+            cursor: pointer;
+        }
+        input[type="radio"] {
+            margin-right: 10px;
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 700px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        .modal-content button.close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 2em;
+            cursor: pointer;
+            color: #aaa;
+            transition: color 0.2s;
+        }
+        .modal-content button.close:hover {
+            color: #333;
+        }
+        .notification {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 15px;
+            display: none;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            font-size: 1.1em;
+            z-index: 1000;
+            max-width: 80%;
+            text-align: center;
+        }
+        #qr-modal-content, #camera-modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+        }
+        #qr-code {
+            margin: 20px 0;
+        }
+        #camera-feed {
+            width: 100%;
+            max-width: 400px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="onboarding" style="display: none; text-align: center; padding: 40px; background: linear-gradient(135deg, #f6d365, #fda085); border-radius: 20px; max-width: 500px; margin: 50px auto; box-shadow: 0 8px 30px rgba(0,0,0,0.15);">
+        <h2 style="font-size: 2em; margin-bottom: 20px; color: #fff;">Welcome to APStat Chain</h2>
+        <p style="font-size: 1.2em; margin-bottom: 30px; color: #fff;">Choose your archetype to begin:</p>
+        <select id="archetype-select" style="padding: 15px; font-size: 1.1em; border-radius: 10px; border: none; width: 80%; margin-bottom: 20px; background: rgba(255,255,255,0.9); color: #333;">
+            <option value="aces">Aces</option>
+            <option value="diligent">Diligent</option>
+            <option value="strugglers">Strugglers</option>
+            <option value="guessers">Guessers</option>
+        </select>
+        <button onclick="onboardUser()" style="background: linear-gradient(135deg, #ff9a9e, #fad0c4); border: none; color: white; padding: 15px 30px; border-radius: 10px; font-size: 1.2em; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">Create Profile</button>
+    </div>
+    <div class="container" id="dashboard" style="display: none;">
+        <div class="hud">
+            <div class="hud-item">
+                <h3 style="margin: 0 0 10px; font-size: 1.2em; text-transform: uppercase; letter-spacing: 1px;">Reputation</h3>
+                <p id="reputation" style="font-size: 2.5em; margin: 0; font-weight: bold;">0</p>
+            </div>
+            <div class="hud-item">
+                <h3 style="margin: 0 0 10px; font-size: 1.2em; text-transform: uppercase; letter-spacing: 1px;">Mempool Size</h3>
+                <p id="mempool-size" style="font-size: 2.5em; margin: 0; font-weight: bold;">0</p>
+            </div>
+            <div class="hud-item">
+                <h3 style="margin: 0 0 10px; font-size: 1.2em; text-transform: uppercase; letter-spacing: 1px;">Chain Length</h3>
+                <p id="chain-length" style="font-size: 2.5em; margin: 0; font-weight: bold;">0</p>
+            </div>
+        </div>
+        <div class="question" id="question-container">
+            <h2 id="question-title" style="margin: 0 0 20px; font-size: 1.8em; color: #333; border-bottom: 2px solid #4facfe; padding-bottom: 10px;">Loading...</h2>
+            <p id="question-prompt" style="line-height: 1.8; margin-bottom: 30px; font-size: 1.1em;"></p>
+            <div id="question-choices" style="margin-bottom: 30px;"></div>
+            <canvas id="chart-container" style="width: 100%; height: 400px; margin-bottom: 30px;"></canvas>
+            <textarea id="frq-input" style="display: none;"></textarea>
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; gap: 10px;">
+                    <button id="previous">Previous</button>
+                    <button id="next" disabled>Next</button>
+                </div>
+                <div id="submit-group" style="display: none; display: flex; gap: 10px;">
+                    <button id="get-help" style="display: none; background: linear-gradient(135deg, #84fab0, #8fd3f4);">Get Tutoring Help</button>
+                    <button id="submit-answer">Submit Answer</button>
+                </div>
+            </div>
+        </div>
+        <div style="text-align: center; margin-top: 20px;">
+            <button onclick="displaySyncCode()">Display My Sync Code</button>
+            <button onclick="scanSyncCode()">Sync & Attest with a Peer</button>
+        </div>
+    </div>
+    <div class="modal" id="attestation-modal">
+        <div class="modal-content">
+            <button class="close" onclick="closeModal('attestation-modal')">×</button>
+            <h2 style="margin: 0 0 20px; font-size: 1.6em; color: #333;">Attest to Peer's Answer</h2>
+            <p id="attest-question" style="line-height: 1.8; margin-bottom: 20px; font-size: 1.1em;"></p>
+            <p id="peer-response" style="display: none; background: #f6f6f6; padding: 15px; border-radius: 10px; margin-bottom: 20px; font-style: italic; border: 1px solid #ddd;">Peer's response will appear here.</p>
+            <div id="attest-choices" style="margin-bottom: 20px;"></div>
+            <input type="number" id="attest-frq-score" style="display: none; width: 100%; box-sizing: border-box; padding: 15px; border: 1px solid #ddd; border-radius: 10px; margin-bottom: 20px; font-size: 1em;" min="1" max="5" placeholder="Score 1-5">
+            <button onclick="submitAttestation()" style="background: linear-gradient(135deg, #ff9a9e, #fad0c4); border: none; color: white; padding: 15px 30px; border-radius: 10px; font-size: 1.1em; cursor: pointer; width: 100%;">Submit Attestation</button>
+        </div>
+    </div>
+    <div id="qr-modal" class="modal">
+        <div id="qr-modal-content">
+            <button class="close" onclick="closeModal('qr-modal')">×</button>
+            <h2>Your Sync QR Code</h2>
+            <div id="qr-code"></div>
+        </div>
+    </div>
+    <div id="camera-modal" class="modal">
+        <div id="camera-modal-content">
+            <button class="close" onclick="closeModal('camera-modal')">×</button>
+            <h2>Scan Peer's QR Code</h2>
+            <video id="camera-feed" autoplay playsinline></video>
+        </div>
+    </div>
+    <div id="notification" class="notification"></div>
+
+<script>
+    let curriculum = [];
+    let state = {};
+    let viewIndex = 0;
+    let pubkey = localStorage.getItem('pubkey');
+    let currentAttestTxns = [];
+    let attestIndex = 0;
+    const backendUrl = 'http://127.0.0.1:5000';
+    let chart = null;
+    let videoStream = null;
+    let scanInterval = null;
+
+    async function loadData() {
+        if (!pubkey) return;
+        try {
+            const [curriculumRes, stateRes] = await Promise.all([
+                fetch(`${backendUrl}/curriculum`),
+                fetch(`${backendUrl}/state/${pubkey}`)
+            ]);
+            if (!curriculumRes.ok || !stateRes.ok) throw new Error(`Fetch failed: ${curriculumRes.status}, ${stateRes.status}`);
+            curriculum = await curriculumRes.json();
+            state = await stateRes.json();
+            
+            // Ensure viewIndex is valid and respects official progress
+            viewIndex = Math.min(viewIndex, state.progress);
+            if(curriculum.length > 0) {
+                 renderDashboard();
+            }
+        } catch (err) {
+            showNotification('Failed to load data. Ensure backend is running.');
+            console.error(err);
+        }
+    }
+
+    function isQuestionAnswered(questionId) {
+        if (!state || !state.mempool || !state.chain) return false;
+        const inMempool = state.mempool.some(txn => txn.question_id === questionId && txn.type === 'completion' && txn.owner_pubkey === pubkey);
+        const inChain = state.chain.some(block => block.txns.some(txn => txn.question_id === questionId && txn.type === 'completion' && txn.owner_pubkey === pubkey));
+        return inMempool || inChain;
+    }
+
+    function renderDashboard() {
+        document.getElementById('reputation').textContent = state.reputation.toFixed(2);
+        document.getElementById('mempool-size').textContent = state.mempool ? state.mempool.length : 0;
+        document.getElementById('chain-length').textContent = state.chain ? state.chain.length : 0;
+
+        const question = curriculum[viewIndex];
+        if (!question) return;
+
+        document.getElementById('question-title').textContent = question.id;
+        document.getElementById('question-prompt').textContent = question.prompt;
+
+        const choicesDiv = document.getElementById('question-choices');
+        const submitGroup = document.getElementById('submit-group');
+        const frqInput = document.getElementById('frq-input');
+        const getHelpButton = document.getElementById('get-help');
+        const submitButton = document.getElementById('submit-answer');
+        
+        choicesDiv.innerHTML = '';
+        frqInput.style.display = 'none';
+        getHelpButton.style.display = 'none';
+        submitButton.style.display = 'none';
+        submitGroup.style.display = 'flex';
+
+        const answered = isQuestionAnswered(question.id);
+        document.getElementById('next').disabled = viewIndex >= state.progress;
+        document.getElementById('previous').disabled = viewIndex === 0;
+
+        if (!answered) {
+            if (question.qtype === 'mcq') {
+                choicesDiv.innerHTML = (question.choices || []).map(choice => `
+                    <label>
+                        <input type="radio" name="mcq-answer" value="${choice.key}"> ${choice.key}: ${choice.value}
+                    </label>
+                `).join('');
+                submitButton.style.display = 'inline-block';
+                submitButton.onclick = () => {
+                    const selected = document.querySelector('input[name="mcq-answer"]:checked');
+                    if (selected) submitAnswer(selected.value);
+                    else showNotification("Please select an answer.");
+                };
+            } else { // FRQ
+                frqInput.style.display = 'block';
+                frqInput.value = ''; // Clear previous attempts
+                submitButton.style.display = 'inline-block';
+                submitButton.textContent = "Log Attempt";
+                submitButton.onclick = () => {
+                    if (frqInput.value.trim()) submitAnswer(frqInput.value);
+                    else showNotification("Please enter a response.");
+                };
+                getHelpButton.style.display = 'inline-block';
+                getHelpButton.onclick = () => getTutoringHelp(question, frqInput.value);
+            }
+        } else {
+             choicesDiv.innerHTML = '<p style="color: green; font-weight: bold;">You have answered this question.</p>';
+        }
+
+        renderChart(question);
+    }
+
+    function renderChart(question) {
+        const canvas = document.getElementById('chart-container');
+        if (chart) chart.destroy();
+        const attachments = question.attachments || {};
+        if (!attachments.chartType) {
+            canvas.style.display = 'none';
+            return;
+        }
+
+        canvas.style.display = 'block';
+        const config = attachments.chartConfig || { xAxis: {}, yAxis: {}, gridLines: {} };
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const colors = isDark ? 
+            { text: '#ddd', grid: '#555', bar: 'rgba(100, 181, 246, 0.8)' } : 
+            { text: '#333', grid: '#ddd', bar: 'rgba(54, 162, 235, 0.8)' };
+
+        const data = {
+            labels: attachments.xLabels || [],
+            datasets: (attachments.series || []).map(s => ({
+                label: s.name,
+                data: s.values,
+                backgroundColor: colors.bar,
+                borderWidth: 1
+            }))
+        };
+
+        const options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    title: { display: !!config.xAxis.title, text: config.xAxis.title, color: colors.text },
+                    min: config.xAxis.min,
+                    max: config.xAxis.max,
+                    ticks: { stepSize: config.xAxis.tickInterval, color: colors.text },
+                    grid: { display: !!config.gridLines.vertical, color: colors.grid }
+                },
+                y: {
+                    title: { display: !!config.yAxis.title, text: config.yAxis.title, color: colors.text },
+                    min: config.yAxis.min,
+                    max: config.yAxis.max,
+                    ticks: { stepSize: config.yAxis.tickInterval, color: colors.text },
+                    grid: { display: !!config.gridLines.horizontal, color: colors.grid }
+                }
+            },
+            plugins: {
+                legend: { labels: { color: colors.text } },
+                title: { display: !!attachments.title, text: attachments.title, color: colors.text }
+            }
+        };
+
+        chart = new Chart(canvas, { type: attachments.chartType, data, options });
+    }
+
+    async function submitAnswer(ans) {
+        try {
+            const res = await fetch(`${backendUrl}/txn/create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pubkey, qid: curriculum[viewIndex].id, ans, type: 'completion' })
+            });
+            if (!res.ok) throw new Error('Server rejected the transaction.');
+            await loadData();
+        } catch (err) {
+            showNotification('Failed to submit answer.');
+        }
+    }
+
+    function getTutoringHelp(question, userInput) {
+        const solutionText = question.solution ? JSON.stringify(question.solution) : "No official solution provided.";
+        const prompt = `Tutor me on this AP Statistics question. Here is the question: ${question.prompt}. Here is my attempt: ${userInput}. For your reference, here is the official solution: ${solutionText}.`;
+        navigator.clipboard.writeText(prompt).then(() => {
+            showNotification('Prompt copied to clipboard!');
+            window.open('https://grok.com', '_blank');
+        }).catch(() => showNotification('Failed to copy prompt.'));
+    }
+
+    async function syncAndAttest() {
+        try {
+            const nodesRes = await fetch(`${backendUrl}/nodes`);
+            const allPubkeys = await nodesRes.json();
+            const peers = allPubkeys.filter(p => p !== pubkey);
+            if (peers.length === 0) {
+                showNotification("No peers to sync with yet.");
+                return;
+            }
+            const peer = peers[Math.floor(Math.random() * peers.length)];
+            
+            showNotification(`Syncing with peer: ${peer.substring(0,10)}...`);
+            await fetch(`${backendUrl}/sync`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pubkey1: pubkey, pubkey2: peer })
+            });
+            
+            const stateRes = await fetch(`${backendUrl}/state/${pubkey}`);
+            state = await stateRes.json();
+            
+            const peerCompletions = state.mempool.filter(txn => txn.type === 'completion' && txn.owner_pubkey !== pubkey);
+            currentAttestTxns = peerCompletions.sort(() => 0.5 - Math.random()).slice(0, random.randint(1, 3));
+            attestIndex = 0;
+
+            showNotification(`Sync complete. Found ${currentAttestTxns.length} new peer answers to review.`);
+            if (currentAttestTxns.length > 0) {
+                renderAttestModal(currentAttestTxns[attestIndex]);
+            } else {
+                showNotification('No new attestations needed. Attempting to mine...');
+                await mineBlock();
+            }
+        } catch (err) {
+            showNotification('Sync & Attest cycle failed.');
+        }
+    }
+
+    function renderAttestModal(txn) {
+        const question = curriculum.find(q => q.id === txn.question_id);
+        document.getElementById('attest-question').textContent = `Q: ${question.prompt}`;
+        
+        const choicesDiv = document.getElementById('attest-choices');
+        const frqScoreInput = document.getElementById('attest-frq-score');
+        const peerResponseP = document.getElementById('peer-response');
+        
+        choicesDiv.innerHTML = '';
+        frqScoreInput.style.display = 'none';
+        peerResponseP.style.display = 'none';
+
+        if (question.qtype === 'mcq') {
+            choicesDiv.innerHTML = (question.choices || []).map(choice => `
+                <label><input type="radio" name="attest-answer" value="${choice.key}"> ${choice.key}: ${choice.value}</label>
+            `).join('');
+        } else {
+            peerResponseP.textContent = `Peer's response: "${txn.payload.answer}"`;
+            peerResponseP.style.display = 'block';
+            frqScoreInput.style.display = 'block';
+            frqScoreInput.value = '';
+        }
+        document.getElementById('attestation-modal').style.display = 'flex';
+    }
+
+    async function submitAttestation() {
+        let ans;
+        const txn = currentAttestTxns[attestIndex];
+        const question = curriculum.find(q => q.id === txn.question_id);
+        if (question.qtype === 'mcq') {
+            const selected = document.querySelector('input[name="attest-answer"]:checked');
+            if (!selected) { return showNotification('Please select an answer to attest.'); }
+            ans = selected.value;
+        } else {
+            ans = document.getElementById('attest-frq-score').value;
+            if (!ans || isNaN(ans) || ans < 1 || ans > 5) { return showNotification('Please enter a valid score between 1 and 5.'); }
+        }
+        try {
+            await fetch(`${backendUrl}/txn/create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pubkey, qid: txn.question_id, ans: String(ans), type: 'attestation' })
+            });
+            attestIndex++;
+            if (attestIndex < currentAttestTxns.length) {
+                renderAttestModal(currentAttestTxns[attestIndex]);
+            } else {
+                closeModal('attestation-modal');
+                showNotification('All attestations submitted. Attempting to mine...');
+                await mineBlock();
+            }
+        } catch (err) {
+            showNotification('Attestation submission failed.');
+        }
+    }
+
+    async function mineBlock() {
+        try {
+            await fetch(`${backendUrl}/block/propose/${pubkey}`, { method: 'POST' });
+            await loadData();
+        } catch (err) {
+            showNotification('Mining attempt failed.');
+        }
+    }
+
+    function displaySyncCode() {
+        const qrModal = document.getElementById('qr-modal');
+        const qrCodeDiv = document.getElementById('qr-code');
+        qrCodeDiv.innerHTML = '';
+        const syncPacket = { mempool: state.mempool, chainHashes: state.chain.map(b => b.hash) };
+        const syncData = JSON.stringify(syncPacket);
+        QRCode.toCanvas(document.createElement('canvas'), syncData, { errorCorrectionLevel: 'H' }, (error, canvas) => {
+            if (error) return showNotification('Failed to generate QR code.');
+            qrCodeDiv.appendChild(canvas);
+            qrModal.style.display = 'flex';
+        });
+    }
+
+    async function scanSyncCode() {
+        const cameraModal = document.getElementById('camera-modal');
+        const videoEl = document.getElementById('camera-feed');
+        cameraModal.style.display = 'flex';
+        try {
+            videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            videoEl.srcObject = videoStream;
+            videoEl.play();
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            scanInterval = setInterval(() => {
+                if (videoEl.readyState === videoEl.HAVE_ENOUGH_DATA) {
+                    canvas.height = videoEl.videoHeight;
+                    canvas.width = videoEl.videoWidth;
+                    context.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+                    if (code) {
+                        closeModal('camera-modal');
+                        showNotification('QR code scanned. Processing sync...');
+                        // In a real app, you would POST this to a /sync-from-qr endpoint
+                        console.log('Scanned Data:', code.data);
+                    }
+                }
+            }, 200);
+        } catch (err) {
+            showNotification('Could not access camera.');
+            closeModal('camera-modal');
+        }
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+        if (modalId === 'camera-modal' && videoStream) {
+            videoStream.getTracks().forEach(track => track.stop());
+            videoStream = null;
+        }
+        if (scanInterval) {
+            clearInterval(scanInterval);
+            scanInterval = null;
+        }
+    }
+
+    function showNotification(msg) {
+        const notif = document.getElementById('notification');
+        notif.textContent = msg;
+        notif.style.display = 'block';
+        setTimeout(() => notif.style.display = 'none', 3000);
+    }
+
+    function onboardUser() {
+        const archetype = document.getElementById('archetype-select').value;
+        const newPubkey = `user-${Math.random().toString(36).substring(2, 9)}`;
+        fetch(`${backendUrl}/node/add`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pubkey: newPubkey, archetype })
+        }).then(res => res.json()).then(data => {
+            localStorage.setItem('pubkey', data.pubkey);
+            pubkey = data.pubkey;
+            document.getElementById('onboarding').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            loadData();
+        }).catch(err => showNotification('Onboarding failed.'));
+    }
+
+    window.onload = () => {
+        if (pubkey) {
+            document.getElementById('onboarding').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            loadData();
+        } else {
+            document.getElementById('onboarding').style.display = 'block';
+        }
+        
+        document.getElementById('previous').onclick = () => {
+            if (viewIndex > 0) {
+                viewIndex--;
+                renderDashboard();
+            }
+        };
+        document.getElementById('next').onclick = () => {
+            if (viewIndex < curriculum.length - 1) {
+                viewIndex++;
+                renderDashboard();
+            }
+        };
+
+        // Start periodic refresh only after a user is established
+        if (pubkey) {
+            setInterval(loadData, 10000);
+        }
+    };
+</script>"

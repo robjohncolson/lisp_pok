@@ -1,0 +1,19 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  backend:
+  build: .  # The build context IS the root directory.  
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data  # For persistence
+
+  frontend:
+    image: nginx:alpine
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
